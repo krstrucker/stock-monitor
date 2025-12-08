@@ -84,7 +84,49 @@ def scheduled_scan():
         
         # 모니터링할 종목 수 (환경 변수에서 가져오기)
         symbol_count = int(os.environ.get('MONITOR_SYMBOL_COUNT', '100'))
-        symbols = config.DEFAULT_SYMBOLS[:symbol_count]
+        
+        # 유효한 종목만 필터링 (특수 문자 제거)
+        def is_valid_symbol(symbol):
+            """유효한 종목 심볼인지 확인"""
+            if not symbol or len(symbol) == 0:
+                return False
+            # 특수 문자가 포함된 종목 제외 (^, / 등은 대부분 상장폐지 또는 우선주)
+            if '^' in symbol or '/' in symbol or '$' in symbol:
+                return False
+            # 너무 짧거나 긴 심볼 제외
+            if len(symbol) < 1 or len(symbol) > 10:
+                return False
+            return True
+        
+        # 유효한 종목만 필터링
+        valid_symbols = [s for s in config.DEFAULT_SYMBOLS if is_valid_symbol(s)]
+        print(f"✅ 유효한 종목: {len(valid_symbols)}개 (전체: {len(config.DEFAULT_SYMBOLS)}개)")
+        
+        # 필터링 방법 선택
+        filter_method = os.environ.get('FILTER_METHOD', 'none').lower()
+        # 'none': 필터링 없음 (앞에서부터)
+        # 'market_cap': 시가총액 기준
+        # 'index_priority': 인덱스 우선순위 기준
+        
+        if filter_method == 'market_cap':
+            from symbol_filter import filter_by_market_cap
+            min_cap = os.environ.get('MIN_MARKET_CAP')
+            min_cap = float(min_cap) if min_cap else None
+            symbols = filter_by_market_cap(
+                valid_symbols, 
+                top_n=symbol_count,
+                min_market_cap=min_cap,
+                max_workers=int(os.environ.get('MONITOR_WORKERS', '20'))
+            )
+        elif filter_method == 'index_priority':
+            from symbol_filter import filter_by_index_priority
+            symbols = filter_by_index_priority(
+                valid_symbols,
+                top_n=symbol_count
+            )
+        else:
+            # 기본: 앞에서부터 선택
+            symbols = valid_symbols[:symbol_count]
         
         # 스캔 실행
         new_signals = monitor.scan_once(
@@ -278,5 +320,12 @@ if __name__ == '__main__':
     print(f"\n🌐 웹 서버 시작: http://{host}:{port}")
     print("⚠️ 종료하려면 Ctrl+C를 누르세요\n")
     
-    app.run(host=host, port=port, debug=False)
+    # Heroku에서는 gunicorn을 사용하므로 직접 실행하지 않음
+    if os.environ.get('DYNO'):
+        # Heroku 환경에서는 gunicorn이 실행하므로 여기서는 실행하지 않음
+        print("✅ Heroku 환경 감지: gunicorn이 서버를 실행합니다.")
+        # gunicorn이 실행하므로 여기서는 아무것도 하지 않음
+    else:
+        # 로컬 환경에서만 직접 실행
+        app.run(host=host, port=port, debug=False)
 

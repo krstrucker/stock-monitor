@@ -180,7 +180,7 @@ class DataFetcher:
             # Ticker가 내부적으로 더 나은 에러 핸들링을 함
             ticker = yf.Ticker(symbol)
             
-            # 재시도 로직
+            # 재시도 로직 (API 제한 대응)
             max_retries = 3
             data = None
             for attempt in range(max_retries):
@@ -189,16 +189,39 @@ class DataFetcher:
                     os.environ['CURL_CA_BUNDLE'] = ''
                     os.environ['SSL_CERT_FILE'] = ''
                     
+                    # API 제한 회피를 위한 요청 간격 (429 에러 방지)
+                    if attempt > 0:
+                        import time
+                        # 재시도 시 대기 시간 증가 (지수 백오프)
+                        wait_time = min(2 ** attempt, 10)  # 최대 10초
+                        time.sleep(wait_time)
+                    
                     data = ticker.history(period=period, interval=interval)
                     if not data.empty:
                         break
                 except Exception as retry_error:
+                    error_str = str(retry_error).lower()
+                    # API 제한 에러 감지 (429, 403, rate limit 등)
+                    is_rate_limit = ('429' in error_str or '403' in error_str or 
+                                   'too many' in error_str or 'rate limit' in error_str or
+                                   'ratelimit' in error_str)
+                    
                     if attempt < max_retries - 1:
                         import time
-                        time.sleep(1)
+                        # API 제한인 경우 더 오래 대기
+                        if is_rate_limit:
+                            wait_time = min(10 * (attempt + 1), 60)  # 최대 60초
+                            print(f"⚠️ API 제한 감지, {wait_time}초 대기 중...")
+                        else:
+                            wait_time = min(2 ** attempt, 10)  # 최대 10초
+                        time.sleep(wait_time)
                     else:
                         # 마지막 시도에서도 실패하면 download 시도
                         try:
+                            import time
+                            if is_rate_limit:
+                                time.sleep(10)  # API 제한인 경우 더 오래 대기
+                            
                             os.environ['CURL_CA_BUNDLE'] = ''
                             os.environ['SSL_CERT_FILE'] = ''
                             data = yf.download(

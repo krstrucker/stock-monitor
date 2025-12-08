@@ -371,13 +371,19 @@ class StockSignalSystem:
         signals = []
         start_time = time.time()
         
-        # 멀티스레딩으로 병렬 처리
+        # 멀티스레딩으로 병렬 처리 (API 제한 회피를 위한 요청 간격 추가)
+        import time
+        
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # 모든 작업 제출
-            future_to_symbol = {
-                executor.submit(self._analyze_single_symbol, symbol, timeframe): symbol 
-                for symbol in symbols
-            }
+            # 모든 작업 제출 (요청 간격을 두고 제출)
+            future_to_symbol = {}
+            for i, symbol in enumerate(symbols):
+                # 일정 수의 요청 후 잠시 대기 (API 제한 회피)
+                if i > 0 and i % (max_workers * 2) == 0:
+                    time.sleep(1.0)  # 1초 대기
+                elif i > 0 and i % max_workers == 0:
+                    time.sleep(0.5)  # 0.5초 대기
+                future_to_symbol[executor.submit(self._analyze_single_symbol, symbol, timeframe)] = symbol
             
             # 완료된 작업 처리
             completed = 0

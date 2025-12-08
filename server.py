@@ -135,9 +135,18 @@ def scheduled_scan():
             max_workers=int(os.environ.get('MONITOR_WORKERS', '20'))
         )
         
-        # 새로운 신호가 있으면 알림 전송
-        if new_signals:
-            message = format_signal_message(new_signals)
+        # 7.5점 이상 신호만 필터링 (고수익 전략)
+        min_score = 7.5
+        filtered_signals = [s for s in new_signals if s.get('score', 0) >= min_score]
+        
+        if filtered_signals:
+            print(f"✅ {min_score}점 이상 신호: {len(filtered_signals)}개 (전체: {len(new_signals)}개)")
+        elif new_signals:
+            print(f"⚠️ {min_score}점 이상 신호 없음 (전체: {len(new_signals)}개)")
+        
+        # 새로운 신호가 있으면 알림 전송 (7.5점 이상만)
+        if filtered_signals:
+            message = format_signal_message(filtered_signals)
             send_notification(message)
         
     except Exception as e:
@@ -238,6 +247,40 @@ def get_signals():
         'count': len(signals),
         'timestamp': datetime.now().isoformat()
     })
+
+
+@app.route('/performance')
+def get_performance():
+    """전체 성과 통계 조회"""
+    try:
+        from performance_stats import PerformanceStats
+        
+        stats = PerformanceStats()
+        
+        # 현재 모니터링 중인 종목들
+        if monitor and hasattr(monitor, 'previous_signals'):
+            symbols = list(monitor.previous_signals.keys())
+        else:
+            symbol_count = int(os.environ.get('MONITOR_SYMBOL_COUNT', '100'))
+            symbols = config.DEFAULT_SYMBOLS[:symbol_count]
+        
+        # 성과 통계 계산 (샘플링 - 전체는 시간이 오래 걸림)
+        sample_size = min(100, len(symbols))  # 최대 100개만 샘플링
+        sample_symbols = symbols[:sample_size]
+        
+        performance = stats.get_overall_statistics(sample_symbols, 'short_swing')
+        
+        return jsonify({
+            'performance': performance,
+            'sample_size': sample_size,
+            'total_symbols': len(symbols),
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        return jsonify({
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
 
 
 @app.route('/scan', methods=['POST', 'GET'])

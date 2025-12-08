@@ -133,6 +133,15 @@ class StockMonitor:
             show_progress=False  # 모니터링 모드에서는 진행 상황 숨김
         )
         
+        # 7.5점 이상 신호만 필터링 (고수익 전략)
+        min_score = 7.5
+        signals = [s for s in signals if s.get('score', 0) >= min_score]
+        
+        if signals:
+            print(f"✅ {min_score}점 이상 신호: {len(signals)}개")
+        else:
+            print(f"⚠️ {min_score}점 이상 신호 없음")
+        
         # 새로운 신호만 필터링
         new_signals = self._get_new_signals(signals)
         

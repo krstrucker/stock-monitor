@@ -411,13 +411,17 @@ class StockSignalSystem:
         
         elapsed_time = time.time() - start_time
         
+        # 7.5점 이상 신호만 필터링 (고수익 전략)
+        min_score = 7.5
+        signals = [s for s in signals if s.get('score', 0) >= min_score]
+        
         # 신호 레벨별로 정렬
         level_order = {'STRONG_BUY': 0, 'BUY': 1, 'WATCH': 2, 'HOLD': 3}
         signals.sort(key=lambda x: (level_order.get(x['level'], 99), -x['score']))
         
         # 결과 출력
         print(f"\n{'='*60}")
-        print(f"📋 매수 신호 요약 ({len(signals)}개 발견)")
+        print(f"📋 매수 신호 요약 ({len(signals)}개 발견, {min_score}점 이상)")
         print(f"⏱️  소요 시간: {elapsed_time:.1f}초 ({elapsed_time/60:.1f}분)")
         print(f"{'='*60}\n")
         

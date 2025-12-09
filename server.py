@@ -252,6 +252,7 @@ def scheduled_scan_with_realtime():
                 valid_symbols.append(s_upper)
         
         symbols = valid_symbols
+        print(f"📊 최종 스캔 대상: {len(symbols)}개 종목 (우선주/상장폐지 제외)")
         
         scan_status['total'] = len(symbols)
         

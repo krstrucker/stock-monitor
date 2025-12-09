@@ -3,7 +3,15 @@ import yfinance as yf
 import pandas as pd
 import time
 import json
+import warnings
+import logging
+import os
 from datetime import datetime, timedelta
+
+# yfinance 경고 및 로그 억제
+warnings.filterwarnings('ignore')
+logging.getLogger('yfinance').setLevel(logging.ERROR)
+os.environ['YFINANCE_DISABLE_WARNINGS'] = '1'
 
 class YFRateLimitError(Exception):
     """yfinance API 제한 오류"""
@@ -11,33 +19,54 @@ class YFRateLimitError(Exception):
 
 def fetch_stock_data(symbol, period='1y', retry_count=2, delay=0.5, silent=True):
     """주식 데이터 가져오기 (재시도 로직 포함, 조용한 모드)"""
+    import sys
+    from io import StringIO
+    
     for attempt in range(retry_count):
         try:
-            ticker = yf.Ticker(symbol)
+            # 표준 출력/에러 리다이렉트 (yfinance 메시지 억제)
+            if silent:
+                old_stdout = sys.stdout
+                old_stderr = sys.stderr
+                sys.stdout = StringIO()
+                sys.stderr = StringIO()
             
-            # API 호출 간 딜레이 (rate limit 방지)
-            if attempt > 0:
-                time.sleep(delay * (2 ** attempt))
-            
-            hist = ticker.history(period=period, timeout=10)
-            
-            if hist is None or hist.empty:
-                return None
-            
-            # 최소 데이터 포인트 확인 (최소 20일 이상)
-            if len(hist) < 20:
-                return None
-            
-            # 유효한 가격 데이터 확인
-            if hist['Close'].isna().all() or hist['Close'].eq(0).all():
-                return None
-            
-            return hist
-            
+            try:
+                ticker = yf.Ticker(symbol)
+                
+                # API 호출 간 딜레이 (rate limit 방지)
+                if attempt > 0:
+                    time.sleep(delay * (2 ** attempt))
+                
+                hist = ticker.history(period=period, timeout=10, raise_errors=False)
+                
+                # 출력 복원
+                if silent:
+                    sys.stdout = old_stdout
+                    sys.stderr = old_stderr
+                
+                if hist is None or hist.empty:
+                    return None
+                
+                # 최소 데이터 포인트 확인 (최소 20일 이상)
+                if len(hist) < 20:
+                    return None
+                
+                # 유효한 가격 데이터 확인
+                if hist['Close'].isna().all() or hist['Close'].eq(0).all():
+                    return None
+                
+                return hist
+                
+            except Exception as inner_e:
+                # 출력 복원
+                if silent:
+                    sys.stdout = old_stdout
+                    sys.stderr = old_stderr
+                raise inner_e
+                
         except json.JSONDecodeError:
             # JSON 파싱 오류 (API가 빈 응답 반환)
-            if not silent and attempt == retry_count - 1:
-                pass  # 조용히 실패
             if attempt < retry_count - 1:
                 time.sleep(delay * (2 ** attempt))
             continue

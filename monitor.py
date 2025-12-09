@@ -1,10 +1,16 @@
 """주식 모니터링"""
 import os
 import json
+import warnings
+import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from data_fetcher import fetch_stock_data, YFRateLimitError
 from signal_generator import generate_signal
 import time
+
+# 경고 억제
+warnings.filterwarnings('ignore')
+logging.getLogger('yfinance').setLevel(logging.CRITICAL)
 
 class StockMonitor:
     def __init__(self, scan_interval_minutes=240, save_history=True):

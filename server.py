@@ -18,19 +18,30 @@ scheduler = BackgroundScheduler()
 monitor = None
 db = Database()
 
-# 종목 리스트 가져오기 (간단한 버전)
+# 종목 리스트 가져오기
+from symbol_fetcher import get_all_symbols as fetch_symbols, get_symbols_from_file, save_symbols_to_file
+
 def get_all_symbols():
     """전체 종목 리스트 가져오기"""
     try:
-        # NASDAQ과 NYSE의 주요 종목들
-        # 실제로는 더 많은 종목이 필요하지만, 여기서는 샘플만 제공
-        # 실제 구현 시 symbol_fetcher.py를 사용하거나 외부 API 사용
+        # 파일에서 먼저 시도
+        symbols = get_symbols_from_file('symbols.txt')
+        if symbols and len(symbols) > 100:
+            print(f"📁 파일에서 종목 리스트 로드: {len(symbols)}개")
+            return symbols
         
-        # 임시로 빈 리스트 반환 (실제로는 약 7000개 종목 필요)
-        # 사용자가 직접 종목 리스트를 제공하거나 파일에서 로드해야 함
-        return []
-    except:
-        return []
+        # 파일이 없거나 적으면 API에서 가져오기
+        symbols = fetch_symbols()
+        
+        # 가져온 종목을 파일로 저장 (다음번에는 파일에서 로드)
+        if symbols and len(symbols) > 100:
+            save_symbols_to_file(symbols, 'symbols.txt')
+        
+        return symbols if symbols else []
+    except Exception as e:
+        print(f"❌ 종목 리스트 가져오기 오류: {str(e)}")
+        # 최소한의 종목이라도 반환
+        return ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA']
 
 def send_notification(message):
     """텔레그램 알림 전송"""

@@ -306,41 +306,49 @@ def scheduled_scan_with_realtime():
             traceback.print_exc()
             new_signals = []
         
-        # 7.5점 이상 신호만 필터링
-        min_score = 7.5
-        filtered_signals = [s for s in new_signals if s.get('score', 0) >= min_score]
+        # 6.5점 이상 종목 모두 수집 (매수 신호 + 관찰 종목)
+        watch_score = 6.5
+        buy_score = 7.5
         
-        if filtered_signals:
-            print(f"✅ {min_score}점 이상 신호: {len(filtered_signals)}개 (새로운 신호)")
-        else:
-            print(f"⚠️ {min_score}점 이상 신호 없음")
-        
-        # 스캔 결과 데이터베이스에 저장
+        # 스캔 결과 데이터베이스에 저장 (6.5점 이상 모두)
         all_qualified_signals = []
         if monitor and hasattr(monitor, 'previous_signals'):
             for symbol, data in monitor.previous_signals.items():
-                if data.get('score', 0) >= min_score:
+                total_score = data.get('total_score', data.get('score', 0))
+                if total_score >= watch_score:
                     all_qualified_signals.append({
                         'symbol': symbol,
-                        'level': data.get('level'),
-                        'score': data.get('score'),
-                        'price': data.get('price'),
+                        'level': data.get('level', 'WATCH' if total_score < buy_score else 'BUY'),
+                        'score': total_score,
+                        'canslim_score': data.get('canslim_score', 0),
+                        'value_score': data.get('value_score', 0),
+                        'technical_score': data.get('technical_score', 0),
+                        'price': data.get('price', 0),
                         'date': data.get('date', datetime.now().isoformat())
                     })
+        
+        buy_signals = [s for s in all_qualified_signals if s.get('score', 0) >= buy_score]
+        watch_signals = [s for s in all_qualified_signals if watch_score <= s.get('score', 0) < buy_score]
+        
+        print(f"\n{'='*50}")
+        print(f"✅ 스캔 완료: 총 {len(all_qualified_signals)}개 종목 발견 (6.5점 이상)")
+        print(f"   - 매수 신호: {len(buy_signals)}개 (7.5점 이상)")
+        print(f"   - 관찰 종목: {len(watch_signals)}개 (6.5-7.5점)")
+        print(f"{'='*50}\n")
         
         if all_qualified_signals:
             try:
                 db.save_scan(all_qualified_signals)
-                print(f"✅ 스캔 결과 저장 완료: {len(all_qualified_signals)}개 신호 (7.5점 이상)")
+                print(f"✅ 스캔 결과 저장 완료: {len(all_qualified_signals)}개 종목 (6.5점 이상)")
             except Exception as e:
                 print(f"⚠️ 스캔 결과 저장 실패: {str(e)}")
         
-        # 전체 스캔 완료 후에만 텔레그램 알림 전송
-        if filtered_signals:
-            message = format_signal_message(filtered_signals)
+        # 전체 스캔 완료 후에만 텔레그램 알림 전송 (6.5점 이상 모두)
+        if all_qualified_signals:
+            message = format_signal_message(all_qualified_signals)
             success = send_notification(message)
             if success:
-                print(f"✅ 텔레그램 알림 전송 완료: {len(filtered_signals)}개 신호")
+                print(f"✅ 텔레그램 알림 전송 완료: {len(all_qualified_signals)}개 종목")
             else:
                 print(f"⚠️ 텔레그램 알림 전송 실패")
         

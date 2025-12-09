@@ -107,54 +107,54 @@ class StockMonitor:
                 last_print_time = start_time
                 
                 for future in as_completed(future_to_symbol):
-                completed += 1
-                symbol = future_to_symbol[future]
-                
-                try:
-                    signal = future.result()
-                    if signal:
-                        # 새로운 신호인지 확인
-                        is_new = symbol not in self.previous_signals
-                        is_higher_score = not is_new and self.previous_signals[symbol].get('score', 0) < signal.get('score', 0)
-                        
-                        if is_new or is_higher_score:
-                            new_signals.append(signal)
-                            # 신호 발견 시 즉시 출력
-                            if signal.get('score', 0) >= min_score:
-                                print(f"🟢 신호 발견: {symbol} ({signal.get('score', 0)}점) - 가격: ${signal.get('price', 0):.2f}")
-                            # 실시간 콜백 호출
-                            if progress_callback:
-                                progress_callback(completed, len(symbols), signal)
-                    else:
+                    completed += 1
+                    symbol = future_to_symbol[future]
+                    
+                    try:
+                        signal = future.result()
+                        if signal:
+                            # 새로운 신호인지 확인
+                            is_new = symbol not in self.previous_signals
+                            is_higher_score = not is_new and self.previous_signals[symbol].get('score', 0) < signal.get('score', 0)
+                            
+                            if is_new or is_higher_score:
+                                new_signals.append(signal)
+                                # 신호 발견 시 즉시 출력
+                                if signal.get('score', 0) >= min_score:
+                                    print(f"🟢 신호 발견: {symbol} ({signal.get('score', 0)}점) - 가격: ${signal.get('price', 0):.2f}")
+                                # 실시간 콜백 호출
+                                if progress_callback:
+                                    progress_callback(completed, len(symbols), signal)
+                        else:
+                            failed_count += 1
+                    except Exception as e:
                         failed_count += 1
-                except Exception as e:
-                    failed_count += 1
-                    pass
-                
-                # 진행률 출력 및 콜백
-                current_time = time.time()
-                time_since_last_print = current_time - last_print_time
-                
-                should_print = False
-                # 처음 10개는 즉시 출력
-                if completed <= 10:
-                    should_print = True
-                # 10개 이후는 25개마다 또는 10초마다
-                elif completed <= 100:
-                    should_print = (completed % 25 == 0) or (time_since_last_print >= 10)
-                # 100개 이후는 50개마다 또는 15초마다
-                else:
-                    should_print = (completed % 50 == 0) or (time_since_last_print >= 15)
-                
-                if should_print:
-                    last_print_time = current_time
-                    success_rate = ((completed - failed_count) / completed * 100) if completed > 0 else 0
-                    percent = completed * 100 // len(symbols) if len(symbols) > 0 else 0
-                    elapsed = current_time - start_time
-                    remaining = (elapsed / completed * (len(symbols) - completed)) if completed > 0 else 0
-                    print(f"📊 진행률: {completed}/{len(symbols)} ({percent}%) | 성공: {completed - failed_count}개, 실패: {failed_count}개 | 성공률: {success_rate:.1f}% | 예상 남은 시간: {remaining/60:.1f}분")
-                    if progress_callback:
-                        progress_callback(completed, len(symbols), None)
+                        pass
+                    
+                    # 진행률 출력 및 콜백
+                    current_time = time.time()
+                    time_since_last_print = current_time - last_print_time
+                    
+                    should_print = False
+                    # 처음 10개는 즉시 출력
+                    if completed <= 10:
+                        should_print = True
+                    # 10개 이후는 25개마다 또는 10초마다
+                    elif completed <= 100:
+                        should_print = (completed % 25 == 0) or (time_since_last_print >= 10)
+                    # 100개 이후는 50개마다 또는 15초마다
+                    else:
+                        should_print = (completed % 50 == 0) or (time_since_last_print >= 15)
+                    
+                    if should_print:
+                        last_print_time = current_time
+                        success_rate = ((completed - failed_count) / completed * 100) if completed > 0 else 0
+                        percent = completed * 100 // len(symbols) if len(symbols) > 0 else 0
+                        elapsed = current_time - start_time
+                        remaining = (elapsed / completed * (len(symbols) - completed)) if completed > 0 else 0
+                        print(f"📊 진행률: {completed}/{len(symbols)} ({percent}%) | 성공: {completed - failed_count}개, 실패: {failed_count}개 | 성공률: {success_rate:.1f}% | 예상 남은 시간: {remaining/60:.1f}분")
+                        if progress_callback:
+                            progress_callback(completed, len(symbols), None)
         except Exception as e:
             print(f"❌ ThreadPoolExecutor 실행 중 오류: {str(e)}")
             import traceback

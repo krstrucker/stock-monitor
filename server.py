@@ -271,16 +271,30 @@ def scheduled_scan_with_realtime():
         scan_status['total'] = len(symbols)
         scan_status['progress'] = 0
         
+        # monitor 객체 확인
+        if monitor is None:
+            print("❌ 오류: monitor 객체가 초기화되지 않았습니다. 초기화 중...")
+            global monitor
+            monitor = StockMonitor(scan_interval_minutes=240, save_history=True)
+            print("✅ monitor 객체 초기화 완료")
+        
         # 스캔 실행 전 즉시 진행률 출력
         print(f"⏳ 스캔 준비 완료, 시작합니다...")
+        print(f"🔧 설정: workers={int(os.environ.get('MONITOR_WORKERS', '20'))}, timeframe={os.environ.get('MONITOR_TIMEFRAME', 'short_swing')}")
         
-        # 스캔 실행 (실시간 업데이트 포함)
-        new_signals = monitor.scan_once_with_realtime(
-            symbols=symbols,
-            timeframe=os.environ.get('MONITOR_TIMEFRAME', 'short_swing'),
-            max_workers=int(os.environ.get('MONITOR_WORKERS', '20')),
-            progress_callback=update_scan_progress
-        )
+        try:
+            # 스캔 실행 (실시간 업데이트 포함)
+            new_signals = monitor.scan_once_with_realtime(
+                symbols=symbols,
+                timeframe=os.environ.get('MONITOR_TIMEFRAME', 'short_swing'),
+                max_workers=int(os.environ.get('MONITOR_WORKERS', '20')),
+                progress_callback=update_scan_progress
+            )
+        except Exception as scan_error:
+            print(f"❌ 스캔 실행 중 오류 발생: {str(scan_error)}")
+            import traceback
+            traceback.print_exc()
+            new_signals = []
         
         # 7.5점 이상 신호만 필터링
         min_score = 7.5

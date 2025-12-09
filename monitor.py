@@ -90,19 +90,23 @@ class StockMonitor:
         
         print(f"📊 스캔 시작: {len(symbols)}개 종목")
         print(f"⏳ 첫 번째 종목 처리 중... (잠시만 기다려주세요)")
+        print(f"🔧 ThreadPoolExecutor 생성: max_workers={max_workers}")
         
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # 모든 작업 제출
-            future_to_symbol = {
-                executor.submit(self.scan_symbol, symbol): symbol
-                for symbol in symbols
-            }
-            
-            completed = 0
-            start_time = time.time()
-            last_print_time = start_time
-            
-            for future in as_completed(future_to_symbol):
+        try:
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                print(f"✅ ThreadPoolExecutor 시작됨, 작업 제출 중...")
+                # 모든 작업 제출
+                future_to_symbol = {
+                    executor.submit(self.scan_symbol, symbol): symbol
+                    for symbol in symbols
+                }
+                print(f"✅ {len(future_to_symbol)}개 작업 제출 완료, 결과 대기 중...")
+                
+                completed = 0
+                start_time = time.time()
+                last_print_time = start_time
+                
+                for future in as_completed(future_to_symbol):
                 completed += 1
                 symbol = future_to_symbol[future]
                 
@@ -151,10 +155,21 @@ class StockMonitor:
                     print(f"📊 진행률: {completed}/{len(symbols)} ({percent}%) | 성공: {completed - failed_count}개, 실패: {failed_count}개 | 성공률: {success_rate:.1f}% | 예상 남은 시간: {remaining/60:.1f}분")
                     if progress_callback:
                         progress_callback(completed, len(symbols), None)
+        except Exception as e:
+            print(f"❌ ThreadPoolExecutor 실행 중 오류: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            completed = 0
+            failed_count = len(symbols)
+            new_signals = []
+            filtered_signals = []
         
         # 히스토리 저장
         if self.save_history:
-            self.save_history()
+            try:
+                self.save_history()
+            except Exception as e:
+                print(f"⚠️ 히스토리 저장 실패: {str(e)}")
         
         # 7.5점 이상만 필터링
         filtered_signals = [s for s in new_signals if s.get('score', 0) >= min_score]

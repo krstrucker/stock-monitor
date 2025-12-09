@@ -211,16 +211,21 @@ class StockMonitor:
                     try:
                         signal = future.result()
                         if signal:
-                            # 새로운 신호인지 확인
-                            is_new = symbol not in self.previous_signals
-                            is_higher_score = not is_new and self.previous_signals[symbol].get('score', 0) < signal.get('score', 0)
+                            total_score = signal.get('total_score', signal.get('score', 0))
                             
-                            if is_new or is_higher_score:
-                                new_signals.append(signal)
-                                # 신호 발견 시 즉시 출력
-                                if signal.get('score', 0) >= min_score:
-                                    print(f"🟢 신호 발견: {symbol} ({signal.get('score', 0)}점) - 가격: ${signal.get('price', 0):.2f}")
-                                # 실시간 콜백 호출
+                            # 6.5점 이상인 모든 신호를 실시간으로 표시
+                            if total_score >= 6.5:
+                                # 새로운 신호인지 확인
+                                is_new = symbol not in self.previous_signals
+                                is_higher_score = not is_new and self.previous_signals[symbol].get('total_score', self.previous_signals[symbol].get('score', 0)) < total_score
+                                
+                                if is_new or is_higher_score:
+                                    new_signals.append(signal)
+                                    # 신호 발견 시 즉시 출력
+                                    level_text = "매수" if total_score >= 7.5 else "관찰"
+                                    print(f"🟢 신호 발견: {symbol} ({total_score:.1f}점, {level_text}) - 가격: ${signal.get('price', 0):.2f}")
+                                
+                                # 6.5점 이상인 모든 신호를 실시간 콜백으로 전달 (웹에서 즉시 표시)
                                 if progress_callback:
                                     progress_callback(completed, len(symbols), signal)
                         else:

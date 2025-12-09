@@ -17,14 +17,21 @@ class YFRateLimitError(Exception):
     """yfinance API 제한 오류"""
     pass
 
-def fetch_stock_data(symbol, period='1y', retry_count=1, delay=0.3, silent=True, timeout=8):
+def fetch_stock_data(symbol, period='6mo', retry_count=1, delay=0.3, silent=True, timeout=8):
     """주식 데이터 가져오기 (재시도 로직 포함, 조용한 모드, 빠른 실패)"""
     import sys
     from io import StringIO
+    import threading
     
-    for attempt in range(retry_count):
+    # period를 6개월로 단축하여 더 빠른 응답
+    if period == '1y':
+        period = '6mo'
+    
+    result_container = {'data': None, 'error': None, 'done': False}
+    
+    def fetch_in_thread():
+        """별도 스레드에서 데이터 가져오기"""
         try:
-            # 표준 출력/에러 리다이렉트 (yfinance 메시지 억제)
             if silent:
                 old_stdout = sys.stdout
                 old_stderr = sys.stderr
@@ -33,72 +40,50 @@ def fetch_stock_data(symbol, period='1y', retry_count=1, delay=0.3, silent=True,
             
             try:
                 ticker = yf.Ticker(symbol)
-                
-                # API 호출 간 딜레이 (rate limit 방지)
-                if attempt > 0:
-                    time.sleep(delay * (2 ** attempt))
-                
-                # 타임아웃을 더 짧게 설정하여 빠르게 실패
                 hist = ticker.history(period=period, timeout=timeout, raise_errors=False)
                 
-                # 출력 복원
                 if silent:
                     sys.stdout = old_stdout
                     sys.stderr = old_stderr
                 
-                if hist is None or hist.empty:
-                    return None
-                
-                # 최소 데이터 포인트 확인 (최소 20일 이상)
-                if len(hist) < 20:
-                    return None
-                
-                # 유효한 가격 데이터 확인
-                if hist['Close'].isna().all() or hist['Close'].eq(0).all():
-                    return None
-                
-                return hist
-                
-            except Exception as inner_e:
-                # 출력 복원
+                result_container['data'] = hist
+            except Exception as e:
                 if silent:
                     sys.stdout = old_stdout
                     sys.stderr = old_stderr
-                raise inner_e
-                
-        except json.JSONDecodeError:
-            # JSON 파싱 오류 (API가 빈 응답 반환)
-            if attempt < retry_count - 1:
-                time.sleep(delay * (2 ** attempt))
-            continue
-            
+                result_container['error'] = e
+            finally:
+                result_container['done'] = True
         except Exception as e:
-            error_str = str(e).lower()
-            
-            # Rate limit 오류
-            if 'rate' in error_str or 'too many' in error_str or '429' in error_str:
-                wait_time = delay * (2 ** attempt) * 5  # 더 긴 대기
-                if not silent:
-                    print(f"⚠️ API 제한: {symbol}, {wait_time}초 대기...")
-                time.sleep(wait_time)
-                if attempt == retry_count - 1:
-                    raise YFRateLimitError(f'Rate limited: {symbol}')
-                continue
-            
-            # 상장폐지 또는 데이터 없음
-            if ('delisted' in error_str or 'no data' in error_str or 
-                'not found' in error_str or 'invalid' in error_str):
-                return None
-            
-            # 네트워크 오류 등 - 재시도
-            if attempt < retry_count - 1:
-                time.sleep(delay * (2 ** attempt))
-                continue
-            
-            # 마지막 시도 실패
-            return None
+            result_container['error'] = e
+            result_container['done'] = True
     
-    return None
+    # 스레드에서 실행
+    thread = threading.Thread(target=fetch_in_thread, daemon=True)
+    thread.start()
+    thread.join(timeout=timeout + 2)  # 타임아웃 + 여유 시간
+    
+    if not result_container['done']:
+        # 타임아웃 발생
+        return None
+    
+    if result_container['error']:
+        return None
+    
+    hist = result_container['data']
+                
+    if hist is None or hist.empty:
+        return None
+    
+    # 최소 데이터 포인트 확인 (최소 20일 이상, 6개월이면 약 120일)
+    if len(hist) < 20:
+        return None
+    
+    # 유효한 가격 데이터 확인
+    if hist['Close'].isna().all() or hist['Close'].eq(0).all():
+        return None
+    
+    return hist
 
 def get_current_price(symbol):
     """현재 가격 가져오기"""

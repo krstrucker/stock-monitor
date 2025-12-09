@@ -71,33 +71,56 @@ def fetch_stock_data(symbol, period='6mo', retry_count=1, delay=0.3, silent=True
                     print(f"⚠️ {symbol}: timestamp/indicators 없음")
                 return None
             
-            timestamps = result['timestamp']
-            quote = result['indicators']['quote'][0]
+            timestamps = result.get('timestamp', [])
+            if not timestamps:
+                return None
             
-            # None 값 체크
-            if not timestamps or not quote:
+            indicators = result.get('indicators', {})
+            quote_list = indicators.get('quote', [])
+            if not quote_list:
+                return None
+            
+            quote = quote_list[0]
+            
+            # 데이터 추출 및 None 값 처리
+            opens = quote.get('open', [])
+            highs = quote.get('high', [])
+            lows = quote.get('low', [])
+            closes = quote.get('close', [])
+            volumes = quote.get('volume', [])
+            
+            # 유효한 데이터만 필터링 (None이 아닌 값만)
+            valid_data = []
+            valid_timestamps = []
+            
+            for i, ts in enumerate(timestamps):
+                if i < len(closes) and closes[i] is not None and closes[i] > 0:
+                    valid_timestamps.append(ts)
+                    valid_data.append({
+                        'Open': opens[i] if i < len(opens) and opens[i] is not None else closes[i],
+                        'High': highs[i] if i < len(highs) and highs[i] is not None else closes[i],
+                        'Low': lows[i] if i < len(lows) and lows[i] is not None else closes[i],
+                        'Close': closes[i],
+                        'Volume': volumes[i] if i < len(volumes) and volumes[i] is not None else 0
+                    })
+            
+            if len(valid_data) < 20:
+                if not silent and symbol in ['AAPL', 'MSFT', 'GOOGL']:
+                    print(f"⚠️ {symbol}: 유효한 데이터 부족 ({len(valid_data)}개)")
                 return None
             
             # DataFrame 생성
             try:
-                df = pd.DataFrame({
-                    'Open': quote.get('open', []),
-                    'High': quote.get('high', []),
-                    'Low': quote.get('low', []),
-                    'Close': quote.get('close', []),
-                    'Volume': quote.get('volume', [])
-                }, index=pd.to_datetime(timestamps, unit='s'))
+                df = pd.DataFrame(valid_data, index=pd.to_datetime(valid_timestamps, unit='s'))
             except Exception as e:
                 if not silent and symbol in ['AAPL', 'MSFT', 'GOOGL']:
                     print(f"⚠️ {symbol}: DataFrame 생성 실패 - {str(e)}")
                 return None
             
-            # NaN 제거
-            df = df.dropna()
-            
+            # 최종 검증
             if df.empty or len(df) < 20:
                 if not silent and symbol in ['AAPL', 'MSFT', 'GOOGL']:
-                    print(f"⚠️ {symbol}: 데이터 부족 ({len(df)}개)")
+                    print(f"⚠️ {symbol}: 최종 데이터 부족 ({len(df)}개)")
                 return None
             
             return df

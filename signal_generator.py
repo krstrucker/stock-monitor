@@ -31,10 +31,12 @@ def calculate_score(data):
         
         # 이동평균선
         ma20 = data['Close'].rolling(window=20).mean()
-        ma50 = data['Close'].rolling(window=50).mean()
-        if not ma20.empty and not ma50.empty:
-            if ma20.iloc[-1] > ma50.iloc[-1]:  # 단기 > 장기
-                score += 1.0
+        if len(data) >= 50:
+            ma50 = data['Close'].rolling(window=50).mean()
+            if not ma20.empty and not ma50.empty:
+                if ma20.iloc[-1] > ma50.iloc[-1]:  # 단기 > 장기
+                    score += 1.0
+        if not ma20.empty:
             if data['Close'].iloc[-1] > ma20.iloc[-1]:  # 현재가 > 단기
                 score += 1.0
         
@@ -69,17 +71,23 @@ def generate_signal(symbol, data):
     if data is None or data.empty:
         return None
     
-    score = calculate_score(data)
-    
-    if score >= 7.5:  # 7.5점 이상만 신호
-        current_price = data['Close'].iloc[-1]
-        return {
-            'symbol': symbol,
-            'level': 'BUY',
-            'score': round(score, 2),
-            'price': round(current_price, 2),
-            'date': datetime.now().isoformat()
-        }
-    
-    return None
+    try:
+        score = calculate_score(data)
+        
+        # 7.5점 이상만 신호 반환
+        if score >= 7.5:
+            current_price = data['Close'].iloc[-1]
+            return {
+                'symbol': symbol,
+                'level': 'BUY',
+                'score': round(score, 2),
+                'price': round(current_price, 2),
+                'date': datetime.now().isoformat()
+            }
+        
+        # 7.5점 미만이지만 점수가 있으면 디버깅용으로 반환하지 않음
+        return None
+    except Exception as e:
+        # 에러 발생 시 None 반환 (조용히 실패)
+        return None
 

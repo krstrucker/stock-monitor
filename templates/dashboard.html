@@ -1283,7 +1283,7 @@
         let scanMonitoringInterval = null;
         
         function startScanMonitoring() {
-            // 스캔 진행 중일 때는 5초마다 업데이트
+            // 스캔 진행 중일 때는 3초마다 업데이트
             if (scanMonitoringInterval) {
                 clearInterval(scanMonitoringInterval);
             }
@@ -1323,7 +1323,7 @@
                 } catch (error) {
                     console.error('스캔 모니터링 오류:', error);
                 }
-            }, statusData.is_scanning ? 3000 : 5000); // 스캔 중일 때는 3초마다, 아니면 5초마다
+            }, 3000); // 스캔 중일 때는 3초마다 업데이트
         }
 
         function showRefreshIndicator() {

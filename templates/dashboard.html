@@ -761,14 +761,57 @@
             try {
                 const response = await fetch(`${API_BASE}/scan`, { method: 'POST' });
                 const data = await response.json();
-                alert('스캔이 시작되었습니다. 잠시 후 결과를 확인하세요.');
-                setTimeout(() => {
-                    loadSignals();
-                    loadScans();
-                }, 5000);
+                
+                if (data.status === 'running') {
+                    alert('이미 스캔이 진행 중입니다.');
+                    return;
+                }
+                
+                alert('스캔이 시작되었습니다. 실시간으로 신호가 표시됩니다.');
+                // 스캔 진행 중일 때는 더 자주 업데이트
+                startScanMonitoring();
             } catch (error) {
                 alert('스캔 실행 실패: ' + error.message);
             }
+        }
+        
+        let scanMonitoringInterval = null;
+        
+        function startScanMonitoring() {
+            // 스캔 진행 중일 때는 5초마다 업데이트
+            if (scanMonitoringInterval) {
+                clearInterval(scanMonitoringInterval);
+            }
+            
+            scanMonitoringInterval = setInterval(async () => {
+                try {
+                    // 스캔 상태 확인
+                    const statusResponse = await fetch(`${API_BASE}/scan/status`);
+                    const statusData = await statusResponse.json();
+                    
+                    if (statusData.is_scanning) {
+                        // 스캔 진행 중 - 신호 실시간 업데이트
+                        loadSignals();
+                        
+                        // 진행률 표시 (선택사항)
+                        const progress = statusData.progress;
+                        const total = statusData.total;
+                        if (progress > 0 && total > 0) {
+                            const percent = Math.round((progress / total) * 100);
+                            // 진행률을 헤더에 표시할 수 있음
+                        }
+                    } else {
+                        // 스캔 완료
+                        clearInterval(scanMonitoringInterval);
+                        scanMonitoringInterval = null;
+                        loadSignals();
+                        loadScans();
+                        alert('스캔이 완료되었습니다! 최종 결과가 텔레그램으로 전송되었습니다.');
+                    }
+                } catch (error) {
+                    console.error('스캔 모니터링 오류:', error);
+                }
+            }, 5000); // 5초마다 확인
         }
 
         function showRefreshIndicator() {
@@ -785,12 +828,15 @@
         loadScans();
         loadTopPerformers();
 
-        // 주기적 업데이트
+        // 주기적 업데이트 (스캔 진행 중이 아닐 때만)
         setInterval(() => {
             checkStatus();
-            loadSignals();
-            loadScans();
-            loadTopPerformers();
+            // 스캔 진행 중이 아닐 때만 일반 업데이트
+            if (!scanMonitoringInterval) {
+                loadSignals();
+                loadScans();
+                loadTopPerformers();
+            }
         }, 30000);
 
         // 모달 외부 클릭 시 닫기

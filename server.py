@@ -149,17 +149,19 @@ def scheduled_scan():
             except Exception as e:
                 print(f"⚠️ 스캔 결과 저장 실패: {str(e)}")
         
-        # 새로운 신호가 있으면 알림 전송
+        # 전체 스캔 완료 후에만 텔레그램 알림 전송
         if filtered_signals:
             message = format_signal_message(filtered_signals)
             success = send_notification(message)
             if success:
-                print(f"✅ 텔레그램 알림 전송 완료: {len(filtered_signals)}개 신호")
+                print(f"✅ 텔레그램 알림 전송 완료: {len(filtered_signals)}개 신호 (최종 결과)")
             else:
                 print(f"⚠️ 텔레그램 알림 전송 실패")
         
     except Exception as e:
-        print(f"❌ 스케줄된 스캔 실행 중 오류: {str(e)}")
+        print(f"❌ 스캔 실행 중 오류: {str(e)}")
+    finally:
+        scan_status['is_scanning'] = False
 
 @app.route('/')
 def index():
@@ -212,22 +214,163 @@ def get_signals():
         'timestamp': datetime.now().isoformat()
     })
 
+# 스캔 진행 상태 저장
+scan_status = {
+    'is_scanning': False,
+    'progress': 0,
+    'total': 0,
+    'found_signals': [],
+    'start_time': None
+}
+
 @app.route('/scan', methods=['POST', 'GET'])
 def trigger_scan():
-    """즉시 스캔 실행"""
-    try:
-        scheduled_scan()
+    """즉시 스캔 실행 (비동기)"""
+    global scan_status
+    
+    if scan_status['is_scanning']:
         return jsonify({
-            'status': 'success',
-            'message': '스캔이 실행되었습니다.',
+            'status': 'running',
+            'message': '이미 스캔이 진행 중입니다.',
+            'progress': scan_status['progress'],
+            'total': scan_status['total'],
             'timestamp': datetime.now().isoformat()
         })
+    
+    # 비동기로 스캔 시작
+    import threading
+    thread = threading.Thread(target=scheduled_scan_async)
+    thread.daemon = True
+    thread.start()
+    
+    return jsonify({
+        'status': 'started',
+        'message': '스캔이 시작되었습니다.',
+        'timestamp': datetime.now().isoformat()
+    })
+
+@app.route('/scan/status')
+def get_scan_status():
+    """스캔 진행 상태 조회"""
+    return jsonify({
+        'is_scanning': scan_status['is_scanning'],
+        'progress': scan_status['progress'],
+        'total': scan_status['total'],
+        'found_count': len(scan_status['found_signals']),
+        'start_time': scan_status['start_time'],
+        'timestamp': datetime.now().isoformat()
+    })
+
+def scheduled_scan_async():
+    """비동기 스캔 실행 (웹에서 즉시 스캔 버튼 클릭 시)"""
+    global scan_status
+    
+    try:
+        scan_status['is_scanning'] = True
+        scan_status['progress'] = 0
+        scan_status['found_signals'] = []
+        scan_status['start_time'] = datetime.now().isoformat()
+        
+        scheduled_scan_with_realtime()
+        
+    finally:
+        scan_status['is_scanning'] = False
+        scan_status['progress'] = scan_status['total']  # 완료 표시
+
+def scheduled_scan_with_realtime():
+    """실시간 업데이트가 있는 스캔"""
+    global scan_status
+    
+    try:
+        print(f"\n{'='*50}")
+        print(f"🔄 스캔 시작: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"{'='*50}\n")
+        
+        # 종목 리스트 가져오기
+        symbol_count_str = os.environ.get('MONITOR_SYMBOL_COUNT', '0')
+        symbol_count = int(symbol_count_str) if symbol_count_str else 0
+        
+        all_symbols = get_all_symbols()
+        
+        if symbol_count == 0 or symbol_count >= len(all_symbols):
+            symbols = all_symbols
+            print(f"📊 전체 종목 스캔: {len(symbols)}개 종목")
+        else:
+            symbols = all_symbols[:symbol_count]
+            print(f"📊 제한된 종목 스캔: {len(symbols)}개 종목 (전체: {len(all_symbols)}개)")
+        
+        # 특수 문자 필터링
+        valid_symbols = [s for s in symbols if '^' not in s and '/' not in s and '$' not in s]
+        symbols = valid_symbols
+        
+        scan_status['total'] = len(symbols)
+        
+        # 스캔 실행 (실시간 업데이트 포함)
+        new_signals = monitor.scan_once_with_realtime(
+            symbols=symbols,
+            timeframe=os.environ.get('MONITOR_TIMEFRAME', 'short_swing'),
+            max_workers=int(os.environ.get('MONITOR_WORKERS', '20')),
+            progress_callback=update_scan_progress
+        )
+        
+        # 7.5점 이상 신호만 필터링
+        min_score = 7.5
+        filtered_signals = [s for s in new_signals if s.get('score', 0) >= min_score]
+        
+        if filtered_signals:
+            print(f"✅ {min_score}점 이상 신호: {len(filtered_signals)}개 (새로운 신호)")
+        else:
+            print(f"⚠️ {min_score}점 이상 신호 없음")
+        
+        # 스캔 결과 데이터베이스에 저장
+        all_qualified_signals = []
+        if monitor and hasattr(monitor, 'previous_signals'):
+            for symbol, data in monitor.previous_signals.items():
+                if data.get('score', 0) >= min_score:
+                    all_qualified_signals.append({
+                        'symbol': symbol,
+                        'level': data.get('level'),
+                        'score': data.get('score'),
+                        'price': data.get('price'),
+                        'date': data.get('date', datetime.now().isoformat())
+                    })
+        
+        if all_qualified_signals:
+            try:
+                db.save_scan(all_qualified_signals)
+                print(f"✅ 스캔 결과 저장 완료: {len(all_qualified_signals)}개 신호 (7.5점 이상)")
+            except Exception as e:
+                print(f"⚠️ 스캔 결과 저장 실패: {str(e)}")
+        
+        # 전체 스캔 완료 후에만 텔레그램 알림 전송
+        if filtered_signals:
+            message = format_signal_message(filtered_signals)
+            success = send_notification(message)
+            if success:
+                print(f"✅ 텔레그램 알림 전송 완료: {len(filtered_signals)}개 신호")
+            else:
+                print(f"⚠️ 텔레그램 알림 전송 실패")
+        
     except Exception as e:
-        return jsonify({
-            'status': 'error',
-            'message': str(e),
-            'timestamp': datetime.now().isoformat()
-        }), 500
+        print(f"❌ 스캔 실행 중 오류: {str(e)}")
+    finally:
+        scan_status['is_scanning'] = False
+
+def update_scan_progress(completed, total, new_signal):
+    """스캔 진행 상황 업데이트"""
+    global scan_status
+    scan_status['progress'] = completed
+    
+    # 새로운 신호 발견 시 실시간으로 추가 (7.5점 이상만)
+    if new_signal and new_signal.get('score', 0) >= 7.5:
+        # 중복 체크
+        existing = next((s for s in scan_status['found_signals'] if s['symbol'] == new_signal['symbol']), None)
+        if not existing:
+            scan_status['found_signals'].append(new_signal)
+            # 웹에서 즉시 볼 수 있도록 모니터에도 저장
+            if monitor and hasattr(monitor, 'previous_signals'):
+                monitor.previous_signals[new_signal['symbol']] = new_signal
+                print(f"🟢 실시간 신호 발견: {new_signal['symbol']} ({new_signal['score']}점) - 웹에서 확인 가능")
 
 @app.route('/scans')
 def get_scans():

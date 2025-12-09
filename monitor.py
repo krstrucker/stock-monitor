@@ -59,6 +59,10 @@ class StockMonitor:
     
     def scan_once(self, symbols, timeframe='short_swing', max_workers=20):
         """한 번 스캔 실행"""
+        return self.scan_once_with_realtime(symbols, timeframe, max_workers, None)
+    
+    def scan_once_with_realtime(self, symbols, timeframe='short_swing', max_workers=20, progress_callback=None):
+        """실시간 업데이트가 있는 스캔 실행"""
         new_signals = []
         min_score = 7.5
         
@@ -79,16 +83,22 @@ class StockMonitor:
                     signal = future.result()
                     if signal:
                         # 새로운 신호인지 확인
-                        if symbol not in self.previous_signals:
+                        is_new = symbol not in self.previous_signals
+                        is_higher_score = not is_new and self.previous_signals[symbol].get('score', 0) < signal.get('score', 0)
+                        
+                        if is_new or is_higher_score:
                             new_signals.append(signal)
-                        elif self.previous_signals[symbol].get('score', 0) < signal.get('score', 0):
-                            # 점수가 더 높아진 경우
-                            new_signals.append(signal)
+                            # 실시간 콜백 호출 (100개마다 또는 신호 발견 시)
+                            if progress_callback and (completed % 100 == 0 or signal.get('score', 0) >= min_score):
+                                progress_callback(completed, len(symbols), signal)
                 except Exception as e:
                     pass
                 
+                # 진행률 출력 및 콜백
                 if completed % 100 == 0:
                     print(f"진행률: {completed}/{len(symbols)} ({completed*100//len(symbols)}%)")
+                    if progress_callback:
+                        progress_callback(completed, len(symbols), None)
         
         # 히스토리 저장
         if self.save_history:

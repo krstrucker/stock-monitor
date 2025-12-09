@@ -57,19 +57,32 @@ class StockMonitor:
                 return None
             
             # 조용한 모드로 데이터 가져오기 (오류 로그 없음, 타임아웃 8초로 단축)
-            # 처음 몇 개 종목은 디버깅을 위해 로그 출력
-            is_test_symbol = symbol in ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA']
+            # 주요 종목은 디버깅을 위해 로그 출력
+            is_test_symbol = symbol_upper in ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'TSLA', 'META']
             data = fetch_stock_data(symbol, silent=not is_test_symbol, timeout=8)
             if data is None or data.empty:
                 if is_test_symbol:
                     print(f"⚠️ {symbol}: 데이터 없음")
                 return None
             
+            if is_test_symbol:
+                print(f"✅ {symbol}: 데이터 가져옴 ({len(data)}개 행)")
+            
             signal = generate_signal(symbol, data)
+            
+            if is_test_symbol:
+                if signal:
+                    score = signal.get('score', 0)
+                    price = signal.get('price', 0)
+                    print(f"📊 {symbol}: 신호 생성됨, 점수: {score:.2f}점, 가격: ${price:.2f}")
+                else:
+                    print(f"⚠️ {symbol}: 신호 생성 실패")
             
             if signal and signal.get('score', 0) >= 7.5:  # 7.5점 이상만
                 signal['last_seen'] = signal['date']
                 self.previous_signals[symbol] = signal
+                if is_test_symbol:
+                    print(f"🟢 {symbol}: 7.5점 이상 신호 발견!")
                 return signal
             
             return None

@@ -528,9 +528,16 @@ def get_symbol_detail(symbol):
 
 @app.route('/chart/<symbol>')
 def get_chart_data(symbol):
-    """차트 데이터"""
+    """차트 데이터 (전체 기간)"""
     try:
-        data = fetch_stock_data(symbol, period='6mo')
+        # 전체 기간 데이터 가져오기 (최대 2년)
+        data = fetch_stock_data(symbol, period='2y')
+        if data is None or data.empty:
+            # 2년 데이터가 없으면 1년 시도
+            data = fetch_stock_data(symbol, period='1y')
+        if data is None or data.empty:
+            # 1년도 없으면 6개월 시도
+            data = fetch_stock_data(symbol, period='6mo')
         if data is None or data.empty:
             return jsonify({'error': '데이터를 가져올 수 없습니다'}), 404
         

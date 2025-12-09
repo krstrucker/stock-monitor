@@ -57,8 +57,12 @@ class StockMonitor:
                 return None
             
             # 조용한 모드로 데이터 가져오기 (오류 로그 없음, 타임아웃 8초로 단축)
-            data = fetch_stock_data(symbol, silent=True, timeout=8)
+            # 처음 몇 개 종목은 디버깅을 위해 로그 출력
+            is_test_symbol = symbol in ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA']
+            data = fetch_stock_data(symbol, silent=not is_test_symbol, timeout=8)
             if data is None or data.empty:
+                if is_test_symbol:
+                    print(f"⚠️ {symbol}: 데이터 없음")
                 return None
             
             signal = generate_signal(symbol, data)

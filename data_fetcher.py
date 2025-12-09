@@ -53,39 +53,58 @@ def fetch_stock_data(symbol, period='6mo', retry_count=1, delay=0.3, silent=True
             response = requests.get(url, params=params, headers=headers, timeout=timeout)
             
             if response.status_code != 200:
+                if not silent and symbol in ['AAPL', 'MSFT', 'GOOGL']:  # 테스트 종목만 로그
+                    print(f"⚠️ {symbol}: HTTP {response.status_code}")
                 return None
             
             data = response.json()
             
             if 'chart' not in data or 'result' not in data['chart'] or len(data['chart']['result']) == 0:
+                if not silent and symbol in ['AAPL', 'MSFT', 'GOOGL']:
+                    print(f"⚠️ {symbol}: chart.result 없음")
                 return None
             
             result = data['chart']['result'][0]
             
             if 'timestamp' not in result or 'indicators' not in result:
+                if not silent and symbol in ['AAPL', 'MSFT', 'GOOGL']:
+                    print(f"⚠️ {symbol}: timestamp/indicators 없음")
                 return None
             
             timestamps = result['timestamp']
             quote = result['indicators']['quote'][0]
             
+            # None 값 체크
+            if not timestamps or not quote:
+                return None
+            
             # DataFrame 생성
-            df = pd.DataFrame({
-                'Open': quote['open'],
-                'High': quote['high'],
-                'Low': quote['low'],
-                'Close': quote['close'],
-                'Volume': quote['volume']
-            }, index=pd.to_datetime(timestamps, unit='s'))
+            try:
+                df = pd.DataFrame({
+                    'Open': quote.get('open', []),
+                    'High': quote.get('high', []),
+                    'Low': quote.get('low', []),
+                    'Close': quote.get('close', []),
+                    'Volume': quote.get('volume', [])
+                }, index=pd.to_datetime(timestamps, unit='s'))
+            except Exception as e:
+                if not silent and symbol in ['AAPL', 'MSFT', 'GOOGL']:
+                    print(f"⚠️ {symbol}: DataFrame 생성 실패 - {str(e)}")
+                return None
             
             # NaN 제거
             df = df.dropna()
             
             if df.empty or len(df) < 20:
+                if not silent and symbol in ['AAPL', 'MSFT', 'GOOGL']:
+                    print(f"⚠️ {symbol}: 데이터 부족 ({len(df)}개)")
                 return None
             
             return df
             
         except Exception as e:
+            if not silent and symbol in ['AAPL', 'MSFT', 'GOOGL']:
+                print(f"❌ {symbol}: API 호출 오류 - {str(e)}")
             return None
     
     def fetch_in_thread():
@@ -93,7 +112,7 @@ def fetch_stock_data(symbol, period='6mo', retry_count=1, delay=0.3, silent=True
         try:
             # 방법 1: 직접 Yahoo Finance API 호출 (우선)
             hist = fetch_direct_api()
-            if hist is not None and not hist.empty:
+            if hist is not None and not hist.empty and len(hist) >= 20:
                 result_container['data'] = hist
                 result_container['done'] = True
                 return
@@ -106,7 +125,7 @@ def fetch_stock_data(symbol, period='6mo', retry_count=1, delay=0.3, silent=True
                     result_container['data'] = hist
                     result_container['done'] = True
                     return
-            except:
+            except Exception as e:
                 pass
             
             # 모두 실패

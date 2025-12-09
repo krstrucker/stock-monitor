@@ -89,8 +89,10 @@ class StockMonitor:
         failed_count = 0
         
         print(f"📊 스캔 시작: {len(symbols)}개 종목")
+        print(f"⏳ 첫 번째 종목 처리 중... (잠시만 기다려주세요)")
         
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # 모든 작업 제출
             future_to_symbol = {
                 executor.submit(self.scan_symbol, symbol): symbol
                 for symbol in symbols
@@ -98,6 +100,7 @@ class StockMonitor:
             
             completed = 0
             start_time = time.time()
+            last_print_time = start_time
             
             for future in as_completed(future_to_symbol):
                 completed += 1
@@ -124,19 +127,28 @@ class StockMonitor:
                     failed_count += 1
                     pass
                 
-                # 진행률 출력 및 콜백 (50개마다, 처음 10개는 10개마다)
+                # 진행률 출력 및 콜백
+                current_time = time.time()
+                time_since_last_print = current_time - last_print_time
+                
                 should_print = False
+                # 처음 10개는 즉시 출력
                 if completed <= 10:
-                    should_print = completed % 10 == 0
+                    should_print = True
+                # 10개 이후는 25개마다 또는 10초마다
                 elif completed <= 100:
-                    should_print = completed % 25 == 0
+                    should_print = (completed % 25 == 0) or (time_since_last_print >= 10)
+                # 100개 이후는 50개마다 또는 15초마다
                 else:
-                    should_print = completed % 50 == 0
+                    should_print = (completed % 50 == 0) or (time_since_last_print >= 15)
                 
                 if should_print:
+                    last_print_time = current_time
                     success_rate = ((completed - failed_count) / completed * 100) if completed > 0 else 0
                     percent = completed * 100 // len(symbols) if len(symbols) > 0 else 0
-                    print(f"📊 진행률: {completed}/{len(symbols)} ({percent}%) | 성공: {completed - failed_count}개, 실패: {failed_count}개 | 성공률: {success_rate:.1f}%")
+                    elapsed = current_time - start_time
+                    remaining = (elapsed / completed * (len(symbols) - completed)) if completed > 0 else 0
+                    print(f"📊 진행률: {completed}/{len(symbols)} ({percent}%) | 성공: {completed - failed_count}개, 실패: {failed_count}개 | 성공률: {success_rate:.1f}% | 예상 남은 시간: {remaining/60:.1f}분")
                     if progress_callback:
                         progress_callback(completed, len(symbols), None)
         

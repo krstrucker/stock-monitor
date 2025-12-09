@@ -228,6 +228,13 @@ def scheduled_scan_with_realtime():
     """실시간 업데이트가 있는 스캔"""
     global scan_status
     
+    # 스캔 상태 초기화 (스케줄러에서 직접 호출될 때도 설정)
+    if not scan_status.get('is_scanning', False):
+        scan_status['is_scanning'] = True
+        scan_status['progress'] = 0
+        scan_status['found_signals'] = []
+        scan_status['start_time'] = datetime.now().isoformat()
+    
     try:
         print(f"\n{'='*50}")
         print(f"🔄 스캔 시작: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -262,6 +269,10 @@ def scheduled_scan_with_realtime():
         print(f"📊 최종 스캔 대상: {len(symbols)}개 종목 (우선주/상장폐지 제외)")
         
         scan_status['total'] = len(symbols)
+        scan_status['progress'] = 0
+        
+        # 스캔 실행 전 즉시 진행률 출력
+        print(f"⏳ 스캔 준비 완료, 시작합니다...")
         
         # 스캔 실행 (실시간 업데이트 포함)
         new_signals = monitor.scan_once_with_realtime(

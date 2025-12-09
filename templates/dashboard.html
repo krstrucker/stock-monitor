@@ -552,20 +552,31 @@
                 const container = document.getElementById('signals-container');
                 if (data.signals && data.signals.length > 0) {
                     container.innerHTML = data.signals
-                        .sort((a, b) => b.score - a.score)
                         .map(signal => {
-                            const scoreClass = signal.score >= 9 ? 'high' : signal.score >= 8 ? 'medium' : 'high';
+                            const totalScore = signal.score || 0;
+                            const canslimScore = signal.canslim_score || 0;
+                            const valueScore = signal.value_score || 0;
+                            const technicalScore = signal.technical_score || 0;
+                            
+                            const scoreClass = totalScore >= 7.5 ? 'high' : canslimScore >= 5.0 ? 'medium' : 'high';
+                            const levelText = totalScore >= 7.5 ? '매수' : '관찰';
+                            
                             return `
                                 <div class="signal-item" onclick="showSymbolDetail('${signal.symbol}')">
                                     <div class="signal-info">
                                         <strong>${signal.symbol}</strong>
                                         <div class="signal-details">
                                             <span>💰 $${signal.price.toFixed(2)}</span>
-                                            <span>📊 ${signal.level}</span>
+                                            <span>📊 ${levelText}</span>
                                             <span>🕒 ${new Date(signal.last_seen).toLocaleString('ko-KR')}</span>
                                         </div>
+                                        <div style="display: flex; gap: 12px; margin-top: 8px; font-size: 0.85em; flex-wrap: wrap;">
+                                            <span style="color: #4CAF50;">CAN SLIM: ${canslimScore.toFixed(1)}</span>
+                                            <span style="color: #8BC34A;">가치: ${valueScore.toFixed(1)}</span>
+                                            <span style="color: #CDDC39;">기술: ${technicalScore.toFixed(1)}</span>
+                                        </div>
                                     </div>
-                                    <div class="score ${scoreClass}">${signal.score}</div>
+                                    <div class="score ${scoreClass}">${totalScore.toFixed(1)}</div>
                                 </div>
                             `;
                         }).join('');

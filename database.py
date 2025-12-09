@@ -201,14 +201,17 @@ class Database:
             days_back = 30
         
         # 각 종목의 첫 가격과 현재 가격을 비교하여 수익률 계산
-        cursor.execute('''
+        # SQLite에서는 문자열 연결을 위해 || 대신 파라미터를 직접 사용
+        date_filter = f"date('now', '-{days_back} days')"
+        
+        cursor.execute(f'''
             WITH first_prices AS (
                 SELECT 
                     symbol,
                     price as first_price,
                     price_date as first_date
                 FROM daily_prices
-                WHERE price_date >= date('now', '-' || ? || ' days')
+                WHERE price_date >= {date_filter}
                 GROUP BY symbol
                 HAVING MIN(price_date)
             ),
@@ -218,7 +221,7 @@ class Database:
                     price as latest_price,
                     price_date as latest_date
                 FROM daily_prices
-                WHERE price_date >= date('now', '-' || ? || ' days')
+                WHERE price_date >= {date_filter}
                 GROUP BY symbol
                 HAVING MAX(price_date)
             ),
@@ -229,7 +232,7 @@ class Database:
                     COUNT(*) as signal_count
                 FROM signal_history sh
                 JOIN scans s ON sh.scan_id = s.id
-                WHERE s.scan_date >= datetime('now', '-' || ? || ' days')
+                WHERE s.scan_date >= datetime('now', '-{days_back} days')
                 GROUP BY symbol
             )
             SELECT 
@@ -249,7 +252,7 @@ class Database:
             WHERE fp.first_price > 0 AND lp.latest_price > 0
             ORDER BY return_rate DESC
             LIMIT ?
-        ''', (days_back, days_back, days_back, limit))
+        ''', (limit,))
         
         results = cursor.fetchall()
         conn.close()

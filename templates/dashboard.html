@@ -486,6 +486,8 @@
             flex-direction: column;
             gap: 8px;
             margin-top: 10px;
+            width: 100%;
+            overflow-x: hidden;
         }
         
         .stock-card {
@@ -503,6 +505,8 @@
             align-items: center;
             justify-content: space-between;
             gap: 12px;
+            width: 100%;
+            box-sizing: border-box;
         }
         
         .stock-card:hover {
@@ -515,40 +519,46 @@
         .stock-card-header {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
             flex: 0 0 auto;
+            min-width: 0;
         }
         
         .stock-symbol {
-            font-size: 1.1em;
+            font-size: 1em;
             font-weight: bold;
             color: #4CAF50;
-            min-width: 50px;
+            min-width: 45px;
+            flex-shrink: 0;
         }
         
         .stock-score {
             background: rgba(76, 175, 80, 0.2);
             border: 2px solid #4CAF50;
             color: #4CAF50;
-            padding: 3px 8px;
-            border-radius: 12px;
+            padding: 2px 6px;
+            border-radius: 10px;
             font-weight: bold;
-            font-size: 0.9em;
+            font-size: 0.85em;
             white-space: nowrap;
+            flex-shrink: 0;
         }
         
         .stock-info {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
             flex: 1;
+            min-width: 0;
+            overflow: hidden;
         }
         
         .stock-price {
-            font-size: 1em;
+            font-size: 0.95em;
             color: #e0e0e0;
             font-weight: 600;
             white-space: nowrap;
+            flex-shrink: 0;
         }
         
         .stock-level {
@@ -558,6 +568,7 @@
             font-size: 0.7em;
             font-weight: 600;
             white-space: nowrap;
+            flex-shrink: 0;
         }
         
         .stock-level.buy {
@@ -575,6 +586,7 @@
             justify-content: flex-end;
             gap: 8px;
             flex: 0 0 auto;
+            flex-shrink: 0;
         }
         
         .action-btn {
@@ -591,6 +603,7 @@
             justify-content: center;
             min-width: 28px;
             min-height: 28px;
+            flex-shrink: 0;
         }
         
         .action-btn:hover {
@@ -735,7 +748,7 @@
                             <input type="date" id="date-input" onchange="selectDate(this.value)">
                         </div>
                     </div>
-                    <div id="signals-container" style="max-height: calc(100vh - 500px); overflow-y: auto;">
+                    <div id="signals-container" style="max-height: calc(100vh - 500px); overflow-y: auto; overflow-x: hidden; width: 100%;">
                         <div class="loading">로딩 중</div>
                     </div>
                 </div>

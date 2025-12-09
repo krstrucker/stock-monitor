@@ -77,7 +77,16 @@ class StockMonitor:
             except Exception as e:
                 score = 0
             
-            signal = generate_signal(symbol, data)
+            # 윌리엄 오닐 CAN SLIM 방법론 우선 사용
+            signal = generate_canslim_signal(symbol, data)
+            
+            # CAN SLIM에서 신호가 없으면 가치투자 방법론 사용
+            if signal is None:
+                signal = generate_value_signal(symbol, data)
+            
+            # 가치투자 방법론에서도 신호가 없으면 기술적 분석 사용
+            if signal is None:
+                signal = generate_signal(symbol, data)
             
             # 모든 종목의 점수 출력 (5점 이상만 출력하여 로그 과다 방지)
             if score >= 5.0:

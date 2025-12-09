@@ -863,11 +863,26 @@
             loadSignalsByDate();
         }
         
-        // 날짜별 신호 목록 로드
+        // 날짜별 신호 목록 로드 (스캔 중일 때는 실시간 신호 표시)
         async function loadSignalsByDate() {
             try {
-                const response = await fetch(`${API_BASE}/signals/by-date?date=${currentDate}`);
-                const data = await response.json();
+                // 스캔 진행 중인지 확인
+                const statusResponse = await fetch(`${API_BASE}/scan/status`);
+                const statusData = await statusResponse.json();
+                
+                let response;
+                let data;
+                
+                // 스캔 진행 중이면 실시간 신호 사용, 아니면 날짜별 데이터 사용
+                if (statusData.is_scanning) {
+                    // 실시간 신호 가져오기
+                    response = await fetch(`${API_BASE}/signals`);
+                    data = await response.json();
+                } else {
+                    // 날짜별 데이터 가져오기
+                    response = await fetch(`${API_BASE}/signals/by-date?date=${currentDate}`);
+                    data = await response.json();
+                }
                 
                 const container = document.getElementById('signals-container');
                 if (data.signals && data.signals.length > 0) {
@@ -900,7 +915,11 @@
                     
                     updateStats(data.signals);
                 } else {
-                    container.innerHTML = '<div class="empty-state">해당 날짜에 검색된 종목이 없습니다</div>';
+                    if (statusData.is_scanning) {
+                        container.innerHTML = '<div class="empty-state">스캔 진행 중... 신호가 발견되면 여기에 표시됩니다.</div>';
+                    } else {
+                        container.innerHTML = '<div class="empty-state">해당 날짜에 검색된 종목이 없습니다</div>';
+                    }
                     updateStats([]);
                 }
                 showRefreshIndicator();
@@ -1252,7 +1271,9 @@
                 }
                 
                 alert('스캔이 시작되었습니다. 실시간으로 신호가 표시됩니다.');
-                // 스캔 진행 중일 때는 더 자주 업데이트
+                // 즉시 실시간 신호 표시 시작
+                loadSignalsByDate();
+                // 스캔 진행 중일 때는 더 자주 업데이트 (3초마다)
                 startScanMonitoring();
             } catch (error) {
                 alert('스캔 실행 실패: ' + error.message);
@@ -1274,27 +1295,35 @@
                     const statusData = await statusResponse.json();
                     
                     if (statusData.is_scanning) {
-                        // 스캔 진행 중 - 신호 실시간 업데이트
+                        // 스캔 진행 중 - 신호 실시간 업데이트 (더 자주 업데이트)
                         loadSignalsByDate();
                         
-                        // 진행률 표시 (선택사항)
+                        // 진행률 표시
                         const progress = statusData.progress;
                         const total = statusData.total;
                         if (progress > 0 && total > 0) {
                             const percent = Math.round((progress / total) * 100);
-                            // 진행률을 헤더에 표시할 수 있음
+                            // 날짜 표시 옆에 진행률 표시
+                            const dateDisplay = document.getElementById('date-display');
+                            if (dateDisplay) {
+                                const originalText = dateDisplay.textContent.split(' (')[0];
+                                dateDisplay.textContent = `${originalText} (스캔 진행 중: ${percent}%)`;
+                            }
                         }
                     } else {
                         // 스캔 완료
                         clearInterval(scanMonitoringInterval);
                         scanMonitoringInterval = null;
+                        // 날짜 표시 복원
+                        updateDateDisplay();
+                        // 날짜별 데이터로 전환
                         loadSignalsByDate();
                         alert('스캔이 완료되었습니다! 최종 결과가 텔레그램으로 전송되었습니다.');
                     }
                 } catch (error) {
                     console.error('스캔 모니터링 오류:', error);
                 }
-            }, 5000); // 5초마다 확인
+            }, statusData.is_scanning ? 3000 : 5000); // 스캔 중일 때는 3초마다, 아니면 5초마다
         }
 
         function showRefreshIndicator() {

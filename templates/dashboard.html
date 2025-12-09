@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>주식 매수 신호 대시보드</title>
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .section h2 {
+            color: #555;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        .signal-item {
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            background: #f9f9f9;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .signal-item:hover {
+            background: #e8f5e9;
+            transform: translateX(5px);
+        }
+        .signal-item strong {
+            color: #4CAF50;
+            font-size: 1.2em;
+        }
+        .score {
+            display: inline-block;
+            padding: 5px 10px;
+            background: #4CAF50;
+            color: white;
+            border-radius: 20px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        #chart-container {
+            height: 400px;
+            margin-top: 20px;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+        }
+        .error {
+            color: #f44336;
+            padding: 10px;
+            background: #ffebee;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📈 주식 매수 신호 대시보드</h1>
+        
+        <div class="section">
+            <h2>현재 신호 (7.5점 이상)</h2>
+            <div id="signals-container">
+                <div class="loading">로딩 중...</div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>과거 스캔 기록</h2>
+            <div id="scans-container">
+                <div class="loading">로딩 중...</div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>TOP 10</h2>
+            <div id="top-performers-container">
+                <div class="loading">로딩 중...</div>
+            </div>
+        </div>
+        
+        <div class="section" id="chart-section" style="display: none;">
+            <h2>차트</h2>
+            <div id="chart-container"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        let chart = null;
+
+        // 신호 목록 로드
+        async function loadSignals() {
+            try {
+                const response = await fetch(`${API_BASE}/signals`);
+                const data = await response.json();
+                
+                const container = document.getElementById('signals-container');
+                if (data.signals && data.signals.length > 0) {
+                    container.innerHTML = data.signals.map(signal => `
+                        <div class="signal-item" onclick="showChart('${signal.symbol}')">
+                            <strong>${signal.symbol}</strong>
+                            <span class="score">${signal.score}점</span>
+                            <div>가격: $${signal.price.toFixed(2)} | 레벨: ${signal.level}</div>
+                        </div>
+                    `).join('');
+                } else {
+                    container.innerHTML = '<div class="loading">신호가 없습니다.</div>';
+                }
+            } catch (error) {
+                document.getElementById('signals-container').innerHTML = 
+                    `<div class="error">신호를 불러올 수 없습니다: ${error.message}</div>`;
+            }
+        }
+
+        // 스캔 기록 로드
+        async function loadScans() {
+            try {
+                const response = await fetch(`${API_BASE}/scans?limit=10`);
+                const data = await response.json();
+                
+                const container = document.getElementById('scans-container');
+                if (data.scans && data.scans.length > 0) {
+                    container.innerHTML = data.scans.map(scan => `
+                        <div class="signal-item">
+                            <strong>${scan.scan_date}</strong>
+                            <div>신호 수: ${scan.signal_count}개</div>
+                        </div>
+                    `).join('');
+                } else {
+                    container.innerHTML = '<div class="loading">스캔 기록이 없습니다.</div>';
+                }
+            } catch (error) {
+                document.getElementById('scans-container').innerHTML = 
+                    `<div class="error">스캔 기록을 불러올 수 없습니다: ${error.message}</div>`;
+            }
+        }
+
+        // TOP 10 로드
+        async function loadTopPerformers() {
+            try {
+                const response = await fetch(`${API_BASE}/top-performers?period=week`);
+                const data = await response.json();
+                
+                const container = document.getElementById('top-performers-container');
+                if (data.performers && data.performers.length > 0) {
+                    container.innerHTML = data.performers.map((perf, idx) => `
+                        <div class="signal-item">
+                            <strong>${idx + 1}. ${perf.symbol}</strong>
+                            <span class="score">평균 ${perf.avg_score}점</span>
+                            <div>신호 횟수: ${perf.signal_count}회</div>
+                        </div>
+                    `).join('');
+                } else {
+                    container.innerHTML = '<div class="loading">데이터가 없습니다.</div>';
+                }
+            } catch (error) {
+                document.getElementById('top-performers-container').innerHTML = 
+                    `<div class="error">TOP 10을 불러올 수 없습니다: ${error.message}</div>`;
+            }
+        }
+
+        // 차트 표시
+        async function showChart(symbol) {
+            try {
+                document.getElementById('chart-section').style.display = 'block';
+                const container = document.getElementById('chart-container');
+                container.innerHTML = '<div class="loading">차트 로딩 중...</div>';
+                
+                const response = await fetch(`${API_BASE}/chart/${symbol}`);
+                const data = await response.json();
+                
+                if (chart) {
+                    chart.remove();
+                }
+                
+                chart = LightweightCharts.createChart(container, {
+                    width: container.clientWidth,
+                    height: 400,
+                    layout: {
+                        backgroundColor: '#ffffff',
+                        textColor: '#333',
+                    },
+                    grid: {
+                        vertLines: { color: '#f0f0f0' },
+                        horzLines: { color: '#f0f0f0' },
+                    },
+                });
+                
+                const candlestickSeries = chart.addCandlestickSeries({
+                    upColor: '#26a69a',
+                    downColor: '#ef5350',
+                    borderVisible: false,
+                });
+                
+                candlestickSeries.setData(data.candles);
+                
+                // 신호 마커 추가
+                if (data.markers && data.markers.length > 0) {
+                    candlestickSeries.setMarkers(data.markers);
+                }
+                
+                chart.timeScale().fitContent();
+            } catch (error) {
+                document.getElementById('chart-container').innerHTML = 
+                    `<div class="error">차트를 불러올 수 없습니다: ${error.message}</div>`;
+            }
+        }
+
+        // 초기 로드
+        loadSignals();
+        loadScans();
+        loadTopPerformers();
+
+        // 30초마다 자동 새로고침
+        setInterval(() => {
+            loadSignals();
+            loadScans();
+            loadTopPerformers();
+        }, 30000);
+    </script>
+</body>
+</html>
+

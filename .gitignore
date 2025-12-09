@@ -9,7 +9,9 @@ ENV/
 .venv
 *.log
 signal_history.json
-.DS_Store
 *.db
 *.sqlite
+.DS_Store
+.env
+.venv
 

@@ -3,6 +3,7 @@ import os
 import sys
 import warnings
 import logging
+import sqlite3
 from flask import Flask, jsonify, request
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -392,6 +393,102 @@ def get_scans():
         'count': len(scans),
         'timestamp': datetime.now().isoformat()
     })
+
+@app.route('/signals/by-date')
+def get_signals_by_date():
+    """특정 날짜의 검색된 종목 조회"""
+    date = request.args.get('date')
+    if not date:
+        # 오늘 날짜 기본값
+        date = datetime.now().strftime('%Y-%m-%d')
+    
+    try:
+        # 데이터베이스에서 해당 날짜의 신호 가져오기
+        conn = sqlite3.connect('scans.db')
+        cursor = conn.cursor()
+        
+        # 해당 날짜의 스캔 ID 찾기
+        cursor.execute('''
+            SELECT id FROM scans 
+            WHERE DATE(scan_date) = DATE(?)
+            ORDER BY scan_date DESC
+            LIMIT 1
+        ''', (date,))
+        
+        scan_row = cursor.fetchone()
+        if not scan_row:
+            conn.close()
+            return jsonify({
+                'signals': [],
+                'count': 0,
+                'date': date,
+                'timestamp': datetime.now().isoformat()
+            })
+        
+        scan_id = scan_row[0]
+        
+        # 해당 스캔의 모든 신호 가져오기
+        cursor.execute('''
+            SELECT symbol, level, score, price, signal_date
+            FROM signal_history
+            WHERE scan_id = ?
+            ORDER BY score DESC
+        ''', (scan_id,))
+        
+        results = cursor.fetchall()
+        conn.close()
+        
+        signals = []
+        for row in results:
+            signals.append({
+                'symbol': row[0],
+                'level': row[1] or 'WATCH',
+                'score': row[2] or 0,
+                'price': row[3] or 0,
+                'date': row[4] or date
+            })
+        
+        return jsonify({
+            'signals': signals,
+            'count': len(signals),
+            'date': date,
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        return jsonify({
+            'error': str(e),
+            'signals': [],
+            'count': 0,
+            'date': date
+        }), 500
+
+@app.route('/signals/dates')
+def get_available_dates():
+    """스캔이 수행된 날짜 목록 조회"""
+    try:
+        conn = sqlite3.connect('scans.db')
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT DISTINCT DATE(scan_date) as scan_date
+            FROM scans
+            ORDER BY scan_date DESC
+        ''')
+        
+        results = cursor.fetchall()
+        conn.close()
+        
+        dates = [row[0] for row in results]
+        
+        return jsonify({
+            'dates': dates,
+            'count': len(dates)
+        })
+    except Exception as e:
+        return jsonify({
+            'error': str(e),
+            'dates': []
+        }), 500
 
 @app.route('/symbol/<symbol>')
 def get_symbol_detail(symbol):

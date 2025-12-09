@@ -105,21 +105,25 @@ class StockMonitor:
             if signal is None:
                 signal = generate_signal(symbol, data)
             
+            # 총점 계산
+            total_score = max(canslim_score, value_score, technical_score)
+            
             # 모든 점수를 신호에 추가
             if signal:
                 signal['canslim_score'] = canslim_score
                 signal['value_score'] = value_score
                 signal['technical_score'] = technical_score
-                signal['total_score'] = max(canslim_score, value_score, technical_score)
+                signal['total_score'] = total_score
             
-            # 모든 종목의 점수 출력
-            if signal:
-                price = signal.get('price', 0)
-                level_text = "매수" if signal.get('total_score', 0) >= 7.5 else "관찰"
-                print(f"📊 {symbol}: CAN SLIM {canslim_score:.2f}점 | 가치 {value_score:.2f}점 | 기술 {technical_score:.2f}점 | 총점 {signal.get('total_score', 0):.2f}점 ({level_text}) | 가격 ${price:.2f}")
-            else:
-                # 신호가 없어도 점수는 출력
-                print(f"ℹ️ {symbol}: CAN SLIM {canslim_score:.2f}점 | 가치 {value_score:.2f}점 | 기술 {technical_score:.2f}점 | 총점 {max(canslim_score, value_score, technical_score):.2f}점")
+            # 총점 6.5점 이상인 종목만 출력
+            if total_score >= 6.5:
+                if signal:
+                    price = signal.get('price', 0)
+                    level_text = "매수" if total_score >= 7.5 else "관찰"
+                    print(f"📊 {symbol}: CAN SLIM {canslim_score:.2f}점 | 가치 {value_score:.2f}점 | 기술 {technical_score:.2f}점 | 총점 {total_score:.2f}점 ({level_text}) | 가격 ${price:.2f}")
+                else:
+                    # 신호가 없어도 점수는 출력
+                    print(f"ℹ️ {symbol}: CAN SLIM {canslim_score:.2f}점 | 가치 {value_score:.2f}점 | 기술 {technical_score:.2f}점 | 총점 {total_score:.2f}점")
             
             # 7.5점 이상이면 매수 신호로 저장
             if signal and signal.get('total_score', 0) >= 7.5:

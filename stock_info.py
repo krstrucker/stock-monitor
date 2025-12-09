@@ -1,12 +1,12 @@
 """종목 정보 가져오기"""
 import yfinance as yf
 from signal_generator import calculate_score
-from data_fetcher import fetch_stock_data
+from data_fetcher import fetch_stock_data, _yf_session
 
 def get_stock_info(symbol):
     """기본 종목 정보"""
     try:
-        ticker = yf.Ticker(symbol)
+        ticker = yf.Ticker(symbol, session=_yf_session)
         info = ticker.info
         
         return {
@@ -65,7 +65,7 @@ def get_recommendation_reason(symbol, signal_data):
 def get_recent_news(symbol, limit=5):
     """최근 뉴스"""
     try:
-        ticker = yf.Ticker(symbol)
+        ticker = yf.Ticker(symbol, session=_yf_session)
         news = ticker.news[:limit]
         
         news_list = []

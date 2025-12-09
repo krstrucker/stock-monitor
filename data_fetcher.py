@@ -6,12 +6,34 @@ import json
 import warnings
 import logging
 import os
+import requests
 from datetime import datetime, timedelta
 
 # yfinance 경고 및 로그 억제
 warnings.filterwarnings('ignore')
 logging.getLogger('yfinance').setLevel(logging.ERROR)
 os.environ['YFINANCE_DISABLE_WARNINGS'] = '1'
+
+# 커스텀 세션 생성 (User-Agent 및 헤더 설정)
+def create_yfinance_session():
+    """yfinance용 커스텀 세션 생성"""
+    session = requests.Session()
+    session.headers.update({
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Cache-Control': 'max-age=0'
+    })
+    return session
+
+# 전역 세션 생성
+_yf_session = create_yfinance_session()
 
 class YFRateLimitError(Exception):
     """yfinance API 제한 오류"""
@@ -39,7 +61,8 @@ def fetch_stock_data(symbol, period='6mo', retry_count=1, delay=0.3, silent=True
                 sys.stderr = StringIO()
             
             try:
-                ticker = yf.Ticker(symbol)
+                # 커스텀 세션을 사용하여 Ticker 생성
+                ticker = yf.Ticker(symbol, session=_yf_session)
                 hist = ticker.history(period=period, timeout=timeout, raise_errors=False)
                 
                 if silent:
@@ -88,7 +111,7 @@ def fetch_stock_data(symbol, period='6mo', retry_count=1, delay=0.3, silent=True
 def get_current_price(symbol):
     """현재 가격 가져오기"""
     try:
-        ticker = yf.Ticker(symbol)
+        ticker = yf.Ticker(symbol, session=_yf_session)
         info = ticker.info
         return info.get('currentPrice') or info.get('regularMarketPrice')
     except:

@@ -7,109 +7,460 @@
     <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f5f5f5;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
             padding: 20px;
         }
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-        h1 {
-            color: #333;
-            margin-bottom: 30px;
-        }
-        .section {
+        
+        .header {
             background: white;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
-        .section h2 {
-            color: #555;
-            margin-bottom: 15px;
-            border-bottom: 2px solid #4CAF50;
-            padding-bottom: 10px;
+        
+        .header h1 {
+            color: #333;
+            font-size: 2em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
-        .signal-item {
-            padding: 15px;
-            border-left: 4px solid #4CAF50;
-            background: #f9f9f9;
-            margin-bottom: 10px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        .signal-item:hover {
-            background: #e8f5e9;
-            transform: translateX(5px);
-        }
-        .signal-item strong {
-            color: #4CAF50;
-            font-size: 1.2em;
-        }
-        .score {
-            display: inline-block;
-            padding: 5px 10px;
+        
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
             background: #4CAF50;
             color: white;
             border-radius: 20px;
-            font-weight: bold;
-            margin-left: 10px;
+            font-size: 0.9em;
         }
-        #chart-container {
-            height: 400px;
+        
+        .status-badge.offline {
+            background: #f44336;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: white;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .section {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+        
+        .section:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+        }
+        
+        .section h2 {
+            color: #555;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #667eea;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .section-header-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+        
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #333;
+        }
+        
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+        
+        .signal-item {
+            padding: 18px;
+            border-left: 5px solid #4CAF50;
+            background: linear-gradient(90deg, #f9f9f9 0%, #ffffff 100%);
+            margin-bottom: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .signal-item:hover {
+            background: linear-gradient(90deg, #e8f5e9 0%, #f1f8e9 100%);
+            transform: translateX(5px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .signal-info {
+            flex: 1;
+        }
+        
+        .signal-item strong {
+            color: #4CAF50;
+            font-size: 1.3em;
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .signal-details {
+            color: #666;
+            font-size: 0.9em;
+            display: flex;
+            gap: 15px;
+            margin-top: 8px;
+        }
+        
+        .score {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 16px;
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            border-radius: 25px;
+            font-weight: bold;
+            font-size: 1.1em;
+            min-width: 80px;
+            box-shadow: 0 2px 4px rgba(76, 175, 80, 0.3);
+        }
+        
+        .score.high {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+        }
+        
+        .score.medium {
+            background: linear-gradient(135deg, #ffa726 0%, #fb8c00 100%);
+        }
+        
+        #chart-section {
+            grid-column: 1 / -1;
             margin-top: 20px;
         }
+        
+        #chart-container {
+            height: 500px;
+            margin-top: 20px;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
         .loading {
             text-align: center;
-            padding: 20px;
+            padding: 40px;
             color: #999;
+            font-size: 1.1em;
         }
+        
+        .loading::after {
+            content: '...';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+        
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+        
         .error {
             color: #f44336;
-            padding: 10px;
+            padding: 15px;
             background: #ffebee;
-            border-radius: 4px;
+            border-radius: 8px;
             margin: 10px 0;
+            border-left: 4px solid #f44336;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+        
+        .empty-state::before {
+            content: '📊';
+            font-size: 3em;
+            display: block;
+            margin-bottom: 10px;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            overflow: auto;
+        }
+        
+        .modal-content {
+            background: white;
+            margin: 5% auto;
+            padding: 30px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 800px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+        
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .close:hover {
+            color: #000;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        
+        .refresh-indicator {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            display: none;
+        }
+        
+        .refresh-indicator.show {
+            display: block;
+            animation: slideUp 0.3s;
+        }
+        
+        @keyframes slideUp {
+            from {
+                transform: translateY(100px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>📈 주식 매수 신호 대시보드</h1>
-        
-        <div class="section">
-            <h2>현재 신호 (7.5점 이상)</h2>
-            <div id="signals-container">
-                <div class="loading">로딩 중...</div>
+        <div class="header">
+            <h1>
+                <span>📈</span>
+                주식 매수 신호 대시보드
+            </h1>
+            <div>
+                <span class="status-badge" id="status-badge">
+                    <span class="status-dot"></span>
+                    <span id="status-text">연결 중...</span>
+                </span>
+                <button class="btn btn-primary" onclick="triggerScan()" style="margin-left: 15px;">
+                    🔄 즉시 스캔
+                </button>
             </div>
         </div>
         
-        <div class="section">
-            <h2>과거 스캔 기록</h2>
-            <div id="scans-container">
-                <div class="loading">로딩 중...</div>
+        <div class="stats-grid" id="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">현재 신호</div>
+                <div class="stat-value" id="signal-count">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">오늘 스캔</div>
+                <div class="stat-value" id="scan-count">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">평균 점수</div>
+                <div class="stat-value" id="avg-score">-</div>
             </div>
         </div>
         
-        <div class="section">
-            <h2>TOP 10</h2>
-            <div id="top-performers-container">
-                <div class="loading">로딩 중...</div>
+        <div class="grid">
+            <div class="section">
+                <h2>
+                    <span>현재 신호 (7.5점 이상)</span>
+                    <div class="section-header-actions">
+                        <button class="btn btn-secondary" onclick="loadSignals()">🔄 새로고침</button>
+                    </div>
+                </h2>
+                <div id="signals-container">
+                    <div class="loading">로딩 중</div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>
+                    <span>과거 스캔 기록</span>
+                    <div class="section-header-actions">
+                        <button class="btn btn-secondary" onclick="loadScans()">🔄 새로고침</button>
+                    </div>
+                </h2>
+                <div id="scans-container">
+                    <div class="loading">로딩 중</div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>
+                    <span>주간 TOP 10</span>
+                    <div class="section-header-actions">
+                        <button class="btn btn-secondary" onclick="loadTopPerformers()">🔄 새로고침</button>
+                    </div>
+                </h2>
+                <div id="top-performers-container">
+                    <div class="loading">로딩 중</div>
+                </div>
             </div>
         </div>
         
         <div class="section" id="chart-section" style="display: none;">
-            <h2>차트</h2>
+            <h2>
+                <span id="chart-title">차트</span>
+                <button class="btn btn-secondary" onclick="closeChart()">✕ 닫기</button>
+            </h2>
             <div id="chart-container"></div>
         </div>
+    </div>
+    
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <div id="modal-body"></div>
+        </div>
+    </div>
+    
+    <div class="refresh-indicator" id="refresh-indicator">
+        ✅ 데이터 새로고침 완료
     </div>
 
     <script>
         const API_BASE = window.location.origin;
         let chart = null;
+        let currentSymbol = null;
+
+        // 서버 상태 확인
+        async function checkStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/status`);
+                const data = await response.json();
+                
+                const badge = document.getElementById('status-badge');
+                const text = document.getElementById('status-text');
+                
+                if (data.status === 'running') {
+                    badge.classList.remove('offline');
+                    text.textContent = '서버 실행 중';
+                } else {
+                    badge.classList.add('offline');
+                    text.textContent = '서버 오프라인';
+                }
+            } catch (error) {
+                const badge = document.getElementById('status-badge');
+                const text = document.getElementById('status-text');
+                badge.classList.add('offline');
+                text.textContent = '연결 실패';
+            }
+        }
+
+        // 통계 업데이트
+        function updateStats(signals) {
+            document.getElementById('signal-count').textContent = signals.length;
+            
+            if (signals.length > 0) {
+                const avgScore = (signals.reduce((sum, s) => sum + s.score, 0) / signals.length).toFixed(1);
+                document.getElementById('avg-score').textContent = avgScore;
+            } else {
+                document.getElementById('avg-score').textContent = '-';
+            }
+        }
 
         // 신호 목록 로드
         async function loadSignals() {
@@ -119,16 +470,31 @@
                 
                 const container = document.getElementById('signals-container');
                 if (data.signals && data.signals.length > 0) {
-                    container.innerHTML = data.signals.map(signal => `
-                        <div class="signal-item" onclick="showChart('${signal.symbol}')">
-                            <strong>${signal.symbol}</strong>
-                            <span class="score">${signal.score}점</span>
-                            <div>가격: $${signal.price.toFixed(2)} | 레벨: ${signal.level}</div>
-                        </div>
-                    `).join('');
+                    container.innerHTML = data.signals
+                        .sort((a, b) => b.score - a.score)
+                        .map(signal => {
+                            const scoreClass = signal.score >= 9 ? 'high' : signal.score >= 8 ? 'medium' : '';
+                            return `
+                                <div class="signal-item" onclick="showSymbolDetail('${signal.symbol}')">
+                                    <div class="signal-info">
+                                        <strong>${signal.symbol}</strong>
+                                        <div class="signal-details">
+                                            <span>💰 $${signal.price.toFixed(2)}</span>
+                                            <span>📊 ${signal.level}</span>
+                                            <span>🕒 ${new Date(signal.last_seen).toLocaleString('ko-KR')}</span>
+                                        </div>
+                                    </div>
+                                    <div class="score ${scoreClass}">${signal.score}</div>
+                                </div>
+                            `;
+                        }).join('');
+                    
+                    updateStats(data.signals);
                 } else {
-                    container.innerHTML = '<div class="loading">신호가 없습니다.</div>';
+                    container.innerHTML = '<div class="empty-state">신호가 없습니다</div>';
+                    updateStats([]);
                 }
+                showRefreshIndicator();
             } catch (error) {
                 document.getElementById('signals-container').innerHTML = 
                     `<div class="error">신호를 불러올 수 없습니다: ${error.message}</div>`;
@@ -145,13 +511,21 @@
                 if (data.scans && data.scans.length > 0) {
                     container.innerHTML = data.scans.map(scan => `
                         <div class="signal-item">
-                            <strong>${scan.scan_date}</strong>
-                            <div>신호 수: ${scan.signal_count}개</div>
+                            <div class="signal-info">
+                                <strong>${new Date(scan.scan_date).toLocaleString('ko-KR')}</strong>
+                                <div class="signal-details">
+                                    <span>📈 신호 ${scan.signal_count}개 발견</span>
+                                </div>
+                            </div>
                         </div>
                     `).join('');
+                    
+                    document.getElementById('scan-count').textContent = data.scans.length;
                 } else {
-                    container.innerHTML = '<div class="loading">스캔 기록이 없습니다.</div>';
+                    container.innerHTML = '<div class="empty-state">스캔 기록이 없습니다</div>';
+                    document.getElementById('scan-count').textContent = '0';
                 }
+                showRefreshIndicator();
             } catch (error) {
                 document.getElementById('scans-container').innerHTML = 
                     `<div class="error">스캔 기록을 불러올 수 없습니다: ${error.message}</div>`;
@@ -167,27 +541,89 @@
                 const container = document.getElementById('top-performers-container');
                 if (data.performers && data.performers.length > 0) {
                     container.innerHTML = data.performers.map((perf, idx) => `
-                        <div class="signal-item">
-                            <strong>${idx + 1}. ${perf.symbol}</strong>
-                            <span class="score">평균 ${perf.avg_score}점</span>
-                            <div>신호 횟수: ${perf.signal_count}회</div>
+                        <div class="signal-item" onclick="showChart('${perf.symbol}')">
+                            <div class="signal-info">
+                                <strong>${idx + 1}. ${perf.symbol}</strong>
+                                <div class="signal-details">
+                                    <span>📊 평균 ${perf.avg_score}점</span>
+                                    <span>🔄 ${perf.signal_count}회 신호</span>
+                                </div>
+                            </div>
+                            <div class="score">${perf.avg_score.toFixed(1)}</div>
                         </div>
                     `).join('');
                 } else {
-                    container.innerHTML = '<div class="loading">데이터가 없습니다.</div>';
+                    container.innerHTML = '<div class="empty-state">데이터가 없습니다</div>';
                 }
+                showRefreshIndicator();
             } catch (error) {
                 document.getElementById('top-performers-container').innerHTML = 
                     `<div class="error">TOP 10을 불러올 수 없습니다: ${error.message}</div>`;
             }
         }
 
+        // 종목 상세 정보
+        async function showSymbolDetail(symbol) {
+            try {
+                const response = await fetch(`${API_BASE}/symbol/${symbol}`);
+                const data = await response.json();
+                
+                const modal = document.getElementById('modal');
+                const body = document.getElementById('modal-body');
+                
+                body.innerHTML = `
+                    <h2>${data.symbol} - ${data.stock_info.name}</h2>
+                    <div class="stats-grid" style="margin-top: 20px;">
+                        <div class="stat-card">
+                            <div class="stat-label">점수</div>
+                            <div class="stat-value">${data.signal.score}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">가격</div>
+                            <div class="stat-value">$${data.signal.price.toFixed(2)}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">섹터</div>
+                            <div class="stat-value" style="font-size: 1.2em;">${data.stock_info.sector}</div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 30px;">
+                        <h3>📋 추천 이유</h3>
+                        <p style="margin-top: 10px; line-height: 1.6;">${data.recommendation_reason}</p>
+                    </div>
+                    <div style="margin-top: 30px;">
+                        <h3>✅ 장점</h3>
+                        <ul style="margin-top: 10px; line-height: 1.8;">
+                            ${data.pros_cons.pros.map(pro => `<li>${pro}</li>`).join('')}
+                        </ul>
+                    </div>
+                    <div style="margin-top: 20px;">
+                        <h3>⚠️ 단점</h3>
+                        <ul style="margin-top: 10px; line-height: 1.8;">
+                            ${data.pros_cons.cons.map(con => `<li>${con}</li>`).join('')}
+                        </ul>
+                    </div>
+                    <div style="margin-top: 30px;">
+                        <button class="btn btn-primary" onclick="showChart('${symbol}'); closeModal();">
+                            📈 차트 보기
+                        </button>
+                    </div>
+                `;
+                
+                modal.style.display = 'block';
+            } catch (error) {
+                alert('종목 정보를 불러올 수 없습니다: ' + error.message);
+            }
+        }
+
         // 차트 표시
         async function showChart(symbol) {
             try {
+                currentSymbol = symbol;
                 document.getElementById('chart-section').style.display = 'block';
+                document.getElementById('chart-title').textContent = `${symbol} 차트`;
                 const container = document.getElementById('chart-container');
-                container.innerHTML = '<div class="loading">차트 로딩 중...</div>';
+                container.innerHTML = '<div class="loading">차트 로딩 중</div>';
                 
                 const response = await fetch(`${API_BASE}/chart/${symbol}`);
                 const data = await response.json();
@@ -198,7 +634,7 @@
                 
                 chart = LightweightCharts.createChart(container, {
                     width: container.clientWidth,
-                    height: 400,
+                    height: 500,
                     layout: {
                         backgroundColor: '#ffffff',
                         textColor: '#333',
@@ -217,30 +653,72 @@
                 
                 candlestickSeries.setData(data.candles);
                 
-                // 신호 마커 추가
                 if (data.markers && data.markers.length > 0) {
                     candlestickSeries.setMarkers(data.markers);
                 }
                 
                 chart.timeScale().fitContent();
+                
+                // 차트로 스크롤
+                document.getElementById('chart-section').scrollIntoView({ behavior: 'smooth' });
             } catch (error) {
                 document.getElementById('chart-container').innerHTML = 
                     `<div class="error">차트를 불러올 수 없습니다: ${error.message}</div>`;
             }
         }
 
+        function closeChart() {
+            document.getElementById('chart-section').style.display = 'none';
+            currentSymbol = null;
+        }
+
+        function closeModal() {
+            document.getElementById('modal').style.display = 'none';
+        }
+
+        async function triggerScan() {
+            try {
+                const response = await fetch(`${API_BASE}/scan`, { method: 'POST' });
+                const data = await response.json();
+                alert('스캔이 시작되었습니다. 잠시 후 결과를 확인하세요.');
+                setTimeout(() => {
+                    loadSignals();
+                    loadScans();
+                }, 5000);
+            } catch (error) {
+                alert('스캔 실행 실패: ' + error.message);
+            }
+        }
+
+        function showRefreshIndicator() {
+            const indicator = document.getElementById('refresh-indicator');
+            indicator.classList.add('show');
+            setTimeout(() => {
+                indicator.classList.remove('show');
+            }, 2000);
+        }
+
         // 초기 로드
+        checkStatus();
         loadSignals();
         loadScans();
         loadTopPerformers();
 
-        // 30초마다 자동 새로고침
+        // 주기적 업데이트
         setInterval(() => {
+            checkStatus();
             loadSignals();
             loadScans();
             loadTopPerformers();
         }, 30000);
+
+        // 모달 외부 클릭 시 닫기
+        window.onclick = function(event) {
+            const modal = document.getElementById('modal');
+            if (event.target == modal) {
+                closeModal();
+            }
+        }
     </script>
 </body>
 </html>
-

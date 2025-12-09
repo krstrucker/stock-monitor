@@ -97,6 +97,8 @@ class StockMonitor:
             }
             
             completed = 0
+            start_time = time.time()
+            
             for future in as_completed(future_to_symbol):
                 completed += 1
                 symbol = future_to_symbol[future]
@@ -110,8 +112,11 @@ class StockMonitor:
                         
                         if is_new or is_higher_score:
                             new_signals.append(signal)
-                            # 실시간 콜백 호출 (100개마다 또는 신호 발견 시)
-                            if progress_callback and (completed % 100 == 0 or signal.get('score', 0) >= min_score):
+                            # 신호 발견 시 즉시 출력
+                            if signal.get('score', 0) >= min_score:
+                                print(f"🟢 신호 발견: {symbol} ({signal.get('score', 0)}점) - 가격: ${signal.get('price', 0):.2f}")
+                            # 실시간 콜백 호출
+                            if progress_callback:
                                 progress_callback(completed, len(symbols), signal)
                     else:
                         failed_count += 1
@@ -119,10 +124,19 @@ class StockMonitor:
                     failed_count += 1
                     pass
                 
-                # 진행률 출력 및 콜백 (100개마다만)
-                if completed % 100 == 0:
+                # 진행률 출력 및 콜백 (50개마다, 처음 10개는 10개마다)
+                should_print = False
+                if completed <= 10:
+                    should_print = completed % 10 == 0
+                elif completed <= 100:
+                    should_print = completed % 25 == 0
+                else:
+                    should_print = completed % 50 == 0
+                
+                if should_print:
                     success_rate = ((completed - failed_count) / completed * 100) if completed > 0 else 0
-                    print(f"진행률: {completed}/{len(symbols)} ({completed*100//len(symbols)}%) | 성공률: {success_rate:.1f}%")
+                    percent = completed * 100 // len(symbols) if len(symbols) > 0 else 0
+                    print(f"📊 진행률: {completed}/{len(symbols)} ({percent}%) | 성공: {completed - failed_count}개, 실패: {failed_count}개 | 성공률: {success_rate:.1f}%")
                     if progress_callback:
                         progress_callback(completed, len(symbols), None)
         
@@ -134,8 +148,19 @@ class StockMonitor:
         filtered_signals = [s for s in new_signals if s.get('score', 0) >= min_score]
         
         success_count = completed - failed_count
-        print(f"✅ 스캔 완료: {len(filtered_signals)}개 새로운 신호 (7.5점 이상)")
-        print(f"   - 성공: {success_count}개, 실패: {failed_count}개 (상장폐지/데이터없음)")
+        elapsed_time = time.time() - start_time
+        avg_time_per_symbol = elapsed_time / completed if completed > 0 else 0
+        
+        print(f"\n{'='*50}")
+        print(f"✅ 스캔 완료!")
+        print(f"   - 총 종목: {len(symbols)}개")
+        print(f"   - 완료: {completed}개")
+        print(f"   - 성공: {success_count}개")
+        print(f"   - 실패: {failed_count}개 (상장폐지/데이터없음)")
+        print(f"   - 새로운 신호: {len(filtered_signals)}개 (7.5점 이상)")
+        print(f"   - 소요 시간: {elapsed_time/60:.1f}분 ({elapsed_time:.0f}초)")
+        print(f"   - 평균 속도: {avg_time_per_symbol:.2f}초/종목")
+        print(f"{'='*50}\n")
         
         return filtered_signals
 

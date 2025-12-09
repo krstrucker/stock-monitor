@@ -1,6 +1,8 @@
 """Flask 서버 및 스케줄러"""
 import os
 import sys
+import warnings
+import logging
 from flask import Flask, jsonify, request
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -12,6 +14,11 @@ from stock_info import get_stock_info, get_recommendation_reason, get_recent_new
 from data_fetcher import fetch_stock_data
 import requests
 import json
+
+# 모든 경고 및 yfinance 로그 억제
+warnings.filterwarnings('ignore')
+logging.getLogger('yfinance').setLevel(logging.CRITICAL)
+os.environ['YFINANCE_DISABLE_WARNINGS'] = '1'
 
 app = Flask(__name__)
 scheduler = BackgroundScheduler()

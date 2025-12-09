@@ -32,7 +32,7 @@ class StockMonitor:
             print(f"히스토리 저장 실패: {str(e)}")
     
     def scan_symbol(self, symbol):
-        """단일 종목 스캔"""
+        """단일 종목 스캔 (조용한 모드 - 오류 로그 최소화)"""
         try:
             symbol_upper = symbol.upper().strip()
             
@@ -50,7 +50,8 @@ class StockMonitor:
             if len(symbol_upper) < 1 or len(symbol_upper) > 5:
                 return None
             
-            data = fetch_stock_data(symbol)
+            # 조용한 모드로 데이터 가져오기 (오류 로그 없음)
+            data = fetch_stock_data(symbol, silent=True)
             if data is None or data.empty:
                 return None
             
@@ -62,11 +63,13 @@ class StockMonitor:
                 return signal
             
             return None
+            
         except YFRateLimitError:
-            # API 제한 시 대기
-            time.sleep(5)
+            # API 제한 시 조용히 대기 (로그 없음)
+            time.sleep(10)
             return None
         except Exception as e:
+            # 모든 오류는 조용히 무시 (로그 없음)
             return None
     
     def scan_once(self, symbols, timeframe='short_swing', max_workers=20):
@@ -77,6 +80,7 @@ class StockMonitor:
         """실시간 업데이트가 있는 스캔 실행"""
         new_signals = []
         min_score = 7.5
+        failed_count = 0
         
         print(f"📊 스캔 시작: {len(symbols)}개 종목")
         
@@ -103,12 +107,16 @@ class StockMonitor:
                             # 실시간 콜백 호출 (100개마다 또는 신호 발견 시)
                             if progress_callback and (completed % 100 == 0 or signal.get('score', 0) >= min_score):
                                 progress_callback(completed, len(symbols), signal)
+                    else:
+                        failed_count += 1
                 except Exception as e:
+                    failed_count += 1
                     pass
                 
-                # 진행률 출력 및 콜백
+                # 진행률 출력 및 콜백 (100개마다만)
                 if completed % 100 == 0:
-                    print(f"진행률: {completed}/{len(symbols)} ({completed*100//len(symbols)}%)")
+                    success_rate = ((completed - failed_count) / completed * 100) if completed > 0 else 0
+                    print(f"진행률: {completed}/{len(symbols)} ({completed*100//len(symbols)}%) | 성공률: {success_rate:.1f}%")
                     if progress_callback:
                         progress_callback(completed, len(symbols), None)
         
@@ -119,7 +127,9 @@ class StockMonitor:
         # 7.5점 이상만 필터링
         filtered_signals = [s for s in new_signals if s.get('score', 0) >= min_score]
         
+        success_count = completed - failed_count
         print(f"✅ 스캔 완료: {len(filtered_signals)}개 새로운 신호 (7.5점 이상)")
+        print(f"   - 성공: {success_count}개, 실패: {failed_count}개 (상장폐지/데이터없음)")
         
         return filtered_signals
 

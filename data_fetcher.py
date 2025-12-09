@@ -1,5 +1,4 @@
-"""주식 데이터 가져오기"""
-import yfinance as yf
+"""주식 데이터 가져오기 - 직접 Yahoo Finance API 호출"""
 import pandas as pd
 import time
 import json
@@ -8,83 +7,111 @@ import logging
 import os
 import requests
 from datetime import datetime, timedelta
+import yfinance as yf
 
-# yfinance 경고 및 로그 억제
+# 경고 억제
 warnings.filterwarnings('ignore')
-logging.getLogger('yfinance').setLevel(logging.ERROR)
+logging.getLogger('yfinance').setLevel(logging.CRITICAL)
 os.environ['YFINANCE_DISABLE_WARNINGS'] = '1'
-
-# 커스텀 세션 생성 (User-Agent 및 헤더 설정)
-def create_yfinance_session():
-    """yfinance용 커스텀 세션 생성"""
-    session = requests.Session()
-    session.headers.update({
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'none',
-        'Cache-Control': 'max-age=0'
-    })
-    return session
-
-# 전역 세션 생성
-_yf_session = create_yfinance_session()
 
 class YFRateLimitError(Exception):
     """yfinance API 제한 오류"""
     pass
 
 def fetch_stock_data(symbol, period='6mo', retry_count=1, delay=0.3, silent=True, timeout=8):
-    """주식 데이터 가져오기 (재시도 로직 포함, 조용한 모드, 빠른 실패)"""
-    import sys
-    from io import StringIO
+    """주식 데이터 가져오기 - 직접 Yahoo Finance API 호출 (yfinance 우회)"""
     import threading
     
-    # period를 6개월로 단축하여 더 빠른 응답
+    # period를 6개월로 단축
     if period == '1y':
         period = '6mo'
     
     result_container = {'data': None, 'error': None, 'done': False}
     
+    def fetch_direct_api():
+        """Yahoo Finance API 직접 호출"""
+        try:
+            # Yahoo Finance의 차트 API 직접 호출
+            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+            range_param = '6mo' if period == '6mo' else '1y'
+            
+            params = {
+                'interval': '1d',
+                'range': range_param,
+                'includePrePost': 'false',
+                'events': 'div,splits'
+            }
+            
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'application/json',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Referer': 'https://finance.yahoo.com/',
+                'Origin': 'https://finance.yahoo.com'
+            }
+            
+            response = requests.get(url, params=params, headers=headers, timeout=timeout)
+            
+            if response.status_code != 200:
+                return None
+            
+            data = response.json()
+            
+            if 'chart' not in data or 'result' not in data['chart'] or len(data['chart']['result']) == 0:
+                return None
+            
+            result = data['chart']['result'][0]
+            
+            if 'timestamp' not in result or 'indicators' not in result:
+                return None
+            
+            timestamps = result['timestamp']
+            quote = result['indicators']['quote'][0]
+            
+            # DataFrame 생성
+            df = pd.DataFrame({
+                'Open': quote['open'],
+                'High': quote['high'],
+                'Low': quote['low'],
+                'Close': quote['close'],
+                'Volume': quote['volume']
+            }, index=pd.to_datetime(timestamps, unit='s'))
+            
+            # NaN 제거
+            df = df.dropna()
+            
+            if df.empty or len(df) < 20:
+                return None
+            
+            return df
+            
+        except Exception as e:
+            return None
+    
     def fetch_in_thread():
         """별도 스레드에서 데이터 가져오기"""
         try:
-            if silent:
-                old_stdout = sys.stdout
-                old_stderr = sys.stderr
-                sys.stdout = StringIO()
-                sys.stderr = StringIO()
-            
-            try:
-                # 커스텀 세션을 사용하여 Ticker 생성
-                # yfinance 0.2.28에서는 session 파라미터가 제대로 작동하지 않을 수 있으므로
-                # yfinance의 내부 세션을 직접 설정
-                ticker = yf.Ticker(symbol)
-                # 세션을 직접 설정 (yfinance 내부 구조)
-                if hasattr(ticker, '_session'):
-                    ticker._session = _yf_session
-                elif hasattr(ticker, 'session'):
-                    ticker.session = _yf_session
-                
-                hist = ticker.history(period=period, timeout=timeout, raise_errors=False)
-                
-                if silent:
-                    sys.stdout = old_stdout
-                    sys.stderr = old_stderr
-                
+            # 방법 1: 직접 Yahoo Finance API 호출 (우선)
+            hist = fetch_direct_api()
+            if hist is not None and not hist.empty:
                 result_container['data'] = hist
-            except Exception as e:
-                if silent:
-                    sys.stdout = old_stdout
-                    sys.stderr = old_stderr
-                result_container['error'] = e
-            finally:
                 result_container['done'] = True
+                return
+            
+            # 방법 2: yfinance fallback (매우 짧은 타임아웃)
+            try:
+                ticker = yf.Ticker(symbol)
+                hist = ticker.history(period=period, timeout=3, raise_errors=False)
+                if hist is not None and not hist.empty and len(hist) >= 20:
+                    result_container['data'] = hist
+                    result_container['done'] = True
+                    return
+            except:
+                pass
+            
+            # 모두 실패
+            result_container['done'] = True
+            
         except Exception as e:
             result_container['error'] = e
             result_container['done'] = True
@@ -92,21 +119,20 @@ def fetch_stock_data(symbol, period='6mo', retry_count=1, delay=0.3, silent=True
     # 스레드에서 실행
     thread = threading.Thread(target=fetch_in_thread, daemon=True)
     thread.start()
-    thread.join(timeout=timeout + 2)  # 타임아웃 + 여유 시간
+    thread.join(timeout=timeout + 2)
     
     if not result_container['done']:
-        # 타임아웃 발생
         return None
     
     if result_container['error']:
         return None
     
     hist = result_container['data']
-                
+    
     if hist is None or hist.empty:
         return None
     
-    # 최소 데이터 포인트 확인 (최소 20일 이상, 6개월이면 약 120일)
+    # 최소 데이터 포인트 확인
     if len(hist) < 20:
         return None
     
@@ -117,9 +143,29 @@ def fetch_stock_data(symbol, period='6mo', retry_count=1, delay=0.3, silent=True
     return hist
 
 def get_current_price(symbol):
-    """현재 가격 가져오기"""
+    """현재 가격 가져오기 - 직접 API 호출"""
     try:
-        ticker = yf.Ticker(symbol, session=_yf_session)
+        # 직접 Yahoo Finance API 호출
+        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+        params = {'interval': '1d', 'range': '1d'}
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'application/json'
+        }
+        
+        response = requests.get(url, params=params, headers=headers, timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            if 'chart' in data and 'result' in data['chart'] and len(data['chart']['result']) > 0:
+                result = data['chart']['result'][0]
+                if 'meta' in result:
+                    return result['meta'].get('regularMarketPrice') or result['meta'].get('previousClose')
+    except:
+        pass
+    
+    # Fallback: yfinance
+    try:
+        ticker = yf.Ticker(symbol)
         info = ticker.info
         return info.get('currentPrice') or info.get('regularMarketPrice')
     except:

@@ -1,12 +1,40 @@
 """종목 정보 가져오기"""
 import yfinance as yf
+import requests
 from signal_generator import calculate_score
-from data_fetcher import fetch_stock_data, _yf_session
+from data_fetcher import fetch_stock_data
 
 def get_stock_info(symbol):
-    """기본 종목 정보"""
+    """기본 종목 정보 - 직접 API 호출"""
     try:
-        ticker = yf.Ticker(symbol, session=_yf_session)
+        # 직접 Yahoo Finance API 호출 시도
+        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+        params = {'interval': '1d', 'range': '1d'}
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'application/json'
+        }
+        
+        response = requests.get(url, params=params, headers=headers, timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            if 'chart' in data and 'result' in data['chart'] and len(data['chart']['result']) > 0:
+                result = data['chart']['result'][0]
+                if 'meta' in result:
+                    meta = result['meta']
+                    return {
+                        'name': meta.get('longName', symbol),
+                        'sector': meta.get('sector', 'N/A'),
+                        'industry': meta.get('industry', 'N/A'),
+                        'marketCap': meta.get('marketCap', 0),
+                        'currentPrice': meta.get('regularMarketPrice', 0)
+                    }
+    except:
+        pass
+    
+    # Fallback: yfinance
+    try:
+        ticker = yf.Ticker(symbol)
         info = ticker.info
         
         return {
@@ -65,7 +93,7 @@ def get_recommendation_reason(symbol, signal_data):
 def get_recent_news(symbol, limit=5):
     """최근 뉴스"""
     try:
-        ticker = yf.Ticker(symbol, session=_yf_session)
+        ticker = yf.Ticker(symbol)
         news = ticker.news[:limit]
         
         news_list = []

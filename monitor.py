@@ -68,15 +68,30 @@ class StockMonitor:
             if is_test_symbol:
                 print(f"✅ {symbol}: 데이터 가져옴 ({len(data)}개 행)")
             
+            # 점수 계산을 먼저 확인
+            from signal_generator import calculate_score
+            try:
+                score = calculate_score(data)
+                if is_test_symbol:
+                    print(f"📊 {symbol}: 점수 계산됨 - {score:.2f}점")
+            except Exception as e:
+                if is_test_symbol:
+                    print(f"❌ {symbol}: 점수 계산 오류 - {str(e)}")
+                score = 0
+            
             signal = generate_signal(symbol, data)
             
             if is_test_symbol:
                 if signal:
                     score = signal.get('score', 0)
                     price = signal.get('price', 0)
-                    print(f"📊 {symbol}: 신호 생성됨, 점수: {score:.2f}점, 가격: ${price:.2f}")
+                    print(f"✅ {symbol}: 신호 생성됨, 점수: {score:.2f}점, 가격: ${price:.2f}")
                 else:
-                    print(f"⚠️ {symbol}: 신호 생성 실패")
+                    # 점수가 있지만 7.5 미만인 경우
+                    if score > 0:
+                        print(f"ℹ️ {symbol}: 신호 생성됨 (점수: {score:.2f}점, 7.5점 미만으로 필터링됨)")
+                    else:
+                        print(f"⚠️ {symbol}: 신호 생성 실패 (점수: {score:.2f}점)")
             
             if signal and signal.get('score', 0) >= 7.5:  # 7.5점 이상만
                 signal['last_seen'] = signal['date']

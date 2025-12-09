@@ -226,7 +226,7 @@ def scheduled_scan_async():
 
 def scheduled_scan_with_realtime():
     """실시간 업데이트가 있는 스캔"""
-    global scan_status
+    global scan_status, monitor
     
     # 스캔 상태 초기화 (스케줄러에서 직접 호출될 때도 설정)
     if not scan_status.get('is_scanning', False):
@@ -239,6 +239,12 @@ def scheduled_scan_with_realtime():
         print(f"\n{'='*50}")
         print(f"🔄 스캔 시작: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"{'='*50}\n")
+        
+        # monitor 객체 확인 (global 선언 후)
+        if monitor is None:
+            print("❌ 오류: monitor 객체가 초기화되지 않았습니다. 초기화 중...")
+            monitor = StockMonitor(scan_interval_minutes=240, save_history=True)
+            print("✅ monitor 객체 초기화 완료")
         
         # 종목 리스트 가져오기
         symbol_count_str = os.environ.get('MONITOR_SYMBOL_COUNT', '0')
@@ -270,13 +276,6 @@ def scheduled_scan_with_realtime():
         
         scan_status['total'] = len(symbols)
         scan_status['progress'] = 0
-        
-        # monitor 객체 확인
-        if monitor is None:
-            print("❌ 오류: monitor 객체가 초기화되지 않았습니다. 초기화 중...")
-            global monitor
-            monitor = StockMonitor(scan_interval_minutes=240, save_history=True)
-            print("✅ monitor 객체 초기화 완료")
         
         # 스캔 실행 전 즉시 진행률 출력
         print(f"⏳ 스캔 준비 완료, 시작합니다...")

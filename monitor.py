@@ -101,29 +101,29 @@ class StockMonitor:
                     for symbol in symbols
                 }
                 print(f"✅ {len(future_to_symbol)}개 작업 제출 완료, 결과 대기 중...")
+                print(f"⏰ 첫 번째 결과를 기다리는 중... (타임아웃: 8초)")
                 
                 completed = 0
                 start_time = time.time()
                 last_print_time = start_time
                 first_result_time = None
                 first_wait_start = time.time()
-                waiting_printed = False
+                waiting_printed_5s = False
+                waiting_printed_10s = False
                 
                 for future in as_completed(future_to_symbol):
                     # 첫 번째 결과 대기 시간 체크
                     if first_result_time is None:
                         elapsed = time.time() - first_wait_start
-                        if elapsed > 5 and not waiting_printed:
-                            print(f"⏳ 첫 번째 결과 대기 중... ({elapsed:.0f}초 경과, 타임아웃: 8초)")
-                            waiting_printed = True
-                        elif elapsed > 10:
-                            print(f"⚠️ 첫 번째 결과가 10초 이상 지연 중... (yfinance API 응답 지연 가능)")
-                            waiting_printed = True
+                        if elapsed > 5 and not waiting_printed_5s:
+                            print(f"⏳ 첫 번째 결과 대기 중... ({elapsed:.0f}초 경과)")
+                            waiting_printed_5s = True
+                        elif elapsed > 10 and not waiting_printed_10s:
+                            print(f"⚠️ 첫 번째 결과가 10초 이상 지연 중... (yfinance API 응답 지연 또는 차단 가능)")
+                            waiting_printed_10s = True
+                        elif elapsed > 15:
+                            print(f"❌ 첫 번째 결과가 15초 이상 지연 중... API가 차단되었을 가능성이 높습니다.")
                     
-                    if first_result_time is None:
-                        first_result_time = time.time()
-                        wait_time = first_result_time - start_time
-                        print(f"✅ 첫 번째 결과 수신! (대기 시간: {wait_time:.1f}초)")
                     if first_result_time is None:
                         first_result_time = time.time()
                         wait_time = first_result_time - start_time

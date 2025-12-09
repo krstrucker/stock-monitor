@@ -62,7 +62,15 @@ def fetch_stock_data(symbol, period='6mo', retry_count=1, delay=0.3, silent=True
             
             try:
                 # 커스텀 세션을 사용하여 Ticker 생성
-                ticker = yf.Ticker(symbol, session=_yf_session)
+                # yfinance 0.2.28에서는 session 파라미터가 제대로 작동하지 않을 수 있으므로
+                # yfinance의 내부 세션을 직접 설정
+                ticker = yf.Ticker(symbol)
+                # 세션을 직접 설정 (yfinance 내부 구조)
+                if hasattr(ticker, '_session'):
+                    ticker._session = _yf_session
+                elif hasattr(ticker, 'session'):
+                    ticker.session = _yf_session
+                
                 hist = ticker.history(period=period, timeout=timeout, raise_errors=False)
                 
                 if silent:

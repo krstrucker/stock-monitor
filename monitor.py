@@ -77,24 +77,27 @@ class StockMonitor:
             
             signal = generate_signal(symbol, data)
             
-            # 점수가 0보다 크거나 테스트 종목인 경우 출력
-            if score > 0 or is_test_symbol:
+            # 모든 종목의 점수 출력 (5점 이상만 출력하여 로그 과다 방지)
+            if score >= 5.0:
                 if signal:
                     final_score = signal.get('score', 0)
                     price = signal.get('price', 0)
                     print(f"✅ {symbol}: 신호 생성됨 | 점수: {final_score:.2f}점 | 가격: ${price:.2f}")
                 else:
-                    # 점수가 있지만 7.5 미만인 경우
-                    if score >= 5.0:  # 5점 이상만 출력 (너무 많은 로그 방지)
-                        print(f"ℹ️ {symbol}: 점수 {score:.2f}점 (7.5점 미만)")
-                    elif is_test_symbol:
-                        print(f"ℹ️ {symbol}: 점수 {score:.2f}점 (7.5점 미만)")
+                    print(f"ℹ️ {symbol}: 점수 {score:.2f}점 (7.5점 미만)")
+            elif is_test_symbol:
+                # 테스트 종목은 점수와 관계없이 출력
+                if signal:
+                    final_score = signal.get('score', 0)
+                    price = signal.get('price', 0)
+                    print(f"✅ {symbol}: 신호 생성됨 | 점수: {final_score:.2f}점 | 가격: ${price:.2f}")
+                else:
+                    print(f"ℹ️ {symbol}: 점수 {score:.2f}점 (7.5점 미만)")
             
             if signal and signal.get('score', 0) >= 7.5:  # 7.5점 이상만
                 signal['last_seen'] = signal['date']
                 self.previous_signals[symbol] = signal
-                if is_test_symbol:
-                    print(f"🟢 {symbol}: 7.5점 이상 신호 발견!")
+                print(f"🟢 {symbol}: 7.5점 이상 신호 발견! (점수: {signal.get('score', 0):.2f}점)")
                 return signal
             
             return None

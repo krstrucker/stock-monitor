@@ -56,8 +56,8 @@ class StockMonitor:
             if len(symbol_upper) < 1 or len(symbol_upper) > 5:
                 return None
             
-            # 조용한 모드로 데이터 가져오기 (오류 로그 없음, 타임아웃 15초)
-            data = fetch_stock_data(symbol, silent=True, timeout=15)
+            # 조용한 모드로 데이터 가져오기 (오류 로그 없음, 타임아웃 8초로 단축)
+            data = fetch_stock_data(symbol, silent=True, timeout=8)
             if data is None or data.empty:
                 return None
             
@@ -101,12 +101,25 @@ class StockMonitor:
                     for symbol in symbols
                 }
                 print(f"✅ {len(future_to_symbol)}개 작업 제출 완료, 결과 대기 중...")
-                print(f"⏰ 첫 번째 결과를 기다리는 중... (최대 30초)")
+                print(f"⏰ 첫 번째 결과를 기다리는 중... (최대 20초)")
                 
                 completed = 0
                 start_time = time.time()
                 last_print_time = start_time
                 first_result_time = None
+                first_wait_start = time.time()
+                
+                # 첫 번째 결과를 기다리는 동안 주기적으로 상태 출력
+                import threading
+                def print_waiting_status():
+                    while first_result_time is None and (time.time() - first_wait_start) < 20:
+                        elapsed = time.time() - first_wait_start
+                        if elapsed > 5 and elapsed % 5 < 1:  # 5초마다 출력
+                            print(f"⏳ 아직 첫 번째 결과 대기 중... ({elapsed:.0f}초 경과)")
+                        time.sleep(1)
+                
+                status_thread = threading.Thread(target=print_waiting_status, daemon=True)
+                status_thread.start()
                 
                 for future in as_completed(future_to_symbol):
                     if first_result_time is None:

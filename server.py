@@ -89,79 +89,8 @@ def init_scheduler():
     print("✅ 스케줄러 시작됨: 매일 22:30, 02:30에 자동 스캔")
 
 def scheduled_scan():
-    """스케줄된 스캔 실행"""
-    try:
-        print(f"\n{'='*50}")
-        print(f"🔄 스케줄된 스캔 시작: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"{'='*50}\n")
-        
-        # 종목 리스트 가져오기
-        symbol_count_str = os.environ.get('MONITOR_SYMBOL_COUNT', '0')
-        symbol_count = int(symbol_count_str) if symbol_count_str else 0
-        
-        # 종목 리스트 로드 (실제 구현 필요)
-        all_symbols = get_all_symbols()
-        
-        if symbol_count == 0 or symbol_count >= len(all_symbols):
-            symbols = all_symbols
-            print(f"📊 전체 종목 스캔: {len(symbols)}개 종목")
-        else:
-            symbols = all_symbols[:symbol_count]
-            print(f"📊 제한된 종목 스캔: {len(symbols)}개 종목 (전체: {len(all_symbols)}개)")
-        
-        # 특수 문자 필터링
-        valid_symbols = [s for s in symbols if '^' not in s and '/' not in s and '$' not in s]
-        symbols = valid_symbols
-        
-        # 스캔 실행
-        new_signals = monitor.scan_once(
-            symbols=symbols,
-            timeframe=os.environ.get('MONITOR_TIMEFRAME', 'short_swing'),
-            max_workers=int(os.environ.get('MONITOR_WORKERS', '20'))
-        )
-        
-        # 7.5점 이상 신호만 필터링 (이중 체크)
-        min_score = 7.5
-        filtered_signals = [s for s in new_signals if s.get('score', 0) >= min_score]
-        
-        if filtered_signals:
-            print(f"✅ {min_score}점 이상 신호: {len(filtered_signals)}개 (새로운 신호)")
-        else:
-            print(f"⚠️ {min_score}점 이상 신호 없음")
-        
-        # 스캔 결과 데이터베이스에 저장
-        all_qualified_signals = []
-        if monitor and hasattr(monitor, 'previous_signals'):
-            for symbol, data in monitor.previous_signals.items():
-                if data.get('score', 0) >= min_score:
-                    all_qualified_signals.append({
-                        'symbol': symbol,
-                        'level': data.get('level'),
-                        'score': data.get('score'),
-                        'price': data.get('price'),
-                        'date': data.get('date', datetime.now().isoformat())
-                    })
-        
-        if all_qualified_signals:
-            try:
-                db.save_scan(all_qualified_signals)
-                print(f"✅ 스캔 결과 저장 완료: {len(all_qualified_signals)}개 신호 (7.5점 이상)")
-            except Exception as e:
-                print(f"⚠️ 스캔 결과 저장 실패: {str(e)}")
-        
-        # 전체 스캔 완료 후에만 텔레그램 알림 전송
-        if filtered_signals:
-            message = format_signal_message(filtered_signals)
-            success = send_notification(message)
-            if success:
-                print(f"✅ 텔레그램 알림 전송 완료: {len(filtered_signals)}개 신호 (최종 결과)")
-            else:
-                print(f"⚠️ 텔레그램 알림 전송 실패")
-        
-    except Exception as e:
-        print(f"❌ 스캔 실행 중 오류: {str(e)}")
-    finally:
-        scan_status['is_scanning'] = False
+    """스케줄된 스캔 실행 (스케줄러용 - 실시간 업데이트 사용)"""
+    scheduled_scan_with_realtime()
 
 @app.route('/')
 def index():

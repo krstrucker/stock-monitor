@@ -362,16 +362,19 @@ def update_scan_progress(completed, total, new_signal):
     global scan_status
     scan_status['progress'] = completed
     
-    # 새로운 신호 발견 시 실시간으로 추가 (7.5점 이상만)
-    if new_signal and new_signal.get('score', 0) >= 7.5:
-        # 중복 체크
-        existing = next((s for s in scan_status['found_signals'] if s['symbol'] == new_signal['symbol']), None)
-        if not existing:
-            scan_status['found_signals'].append(new_signal)
-            # 웹에서 즉시 볼 수 있도록 모니터에도 저장
-            if monitor and hasattr(monitor, 'previous_signals'):
-                monitor.previous_signals[new_signal['symbol']] = new_signal
-                print(f"🟢 실시간 신호 발견: {new_signal['symbol']} ({new_signal['score']}점) - 웹에서 확인 가능")
+    # 새로운 신호 발견 시 실시간으로 추가 (6.5점 이상)
+    if new_signal:
+        total_score = new_signal.get('total_score', new_signal.get('score', 0))
+        if total_score >= 6.5:
+            # 중복 체크
+            existing = next((s for s in scan_status['found_signals'] if s['symbol'] == new_signal['symbol']), None)
+            if not existing:
+                scan_status['found_signals'].append(new_signal)
+                # 웹에서 즉시 볼 수 있도록 모니터에도 저장
+                if monitor and hasattr(monitor, 'previous_signals'):
+                    monitor.previous_signals[new_signal['symbol']] = new_signal
+                    level_text = "매수" if total_score >= 7.5 else "관찰"
+                    print(f"🟢 실시간 신호 발견: {new_signal['symbol']} ({total_score:.1f}점, {level_text}) - 웹에서 확인 가능")
 
 @app.route('/scans')
 def get_scans():

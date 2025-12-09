@@ -17,7 +17,7 @@ class YFRateLimitError(Exception):
     """yfinance API 제한 오류"""
     pass
 
-def fetch_stock_data(symbol, period='1y', retry_count=2, delay=0.5, silent=True):
+def fetch_stock_data(symbol, period='1y', retry_count=2, delay=0.5, silent=True, timeout=15):
     """주식 데이터 가져오기 (재시도 로직 포함, 조용한 모드)"""
     import sys
     from io import StringIO
@@ -38,7 +38,7 @@ def fetch_stock_data(symbol, period='1y', retry_count=2, delay=0.5, silent=True)
                 if attempt > 0:
                     time.sleep(delay * (2 ** attempt))
                 
-                hist = ticker.history(period=period, timeout=10, raise_errors=False)
+                hist = ticker.history(period=period, timeout=timeout, raise_errors=False)
                 
                 # 출력 복원
                 if silent:

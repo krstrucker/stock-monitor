@@ -56,8 +56,8 @@ class StockMonitor:
             if len(symbol_upper) < 1 or len(symbol_upper) > 5:
                 return None
             
-            # 조용한 모드로 데이터 가져오기 (오류 로그 없음)
-            data = fetch_stock_data(symbol, silent=True)
+            # 조용한 모드로 데이터 가져오기 (오류 로그 없음, 타임아웃 15초)
+            data = fetch_stock_data(symbol, silent=True, timeout=15)
             if data is None or data.empty:
                 return None
             
@@ -101,12 +101,19 @@ class StockMonitor:
                     for symbol in symbols
                 }
                 print(f"✅ {len(future_to_symbol)}개 작업 제출 완료, 결과 대기 중...")
+                print(f"⏰ 첫 번째 결과를 기다리는 중... (최대 30초)")
                 
                 completed = 0
                 start_time = time.time()
                 last_print_time = start_time
+                first_result_time = None
                 
                 for future in as_completed(future_to_symbol):
+                    if first_result_time is None:
+                        first_result_time = time.time()
+                        wait_time = first_result_time - start_time
+                        print(f"✅ 첫 번째 결과 수신! (대기 시간: {wait_time:.1f}초)")
+                    
                     completed += 1
                     symbol = future_to_symbol[future]
                     

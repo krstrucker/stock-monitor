@@ -90,27 +90,31 @@ def calculate_score(data):
         return 0.0
 
 def generate_signal(symbol, data):
-    """매수 신호 생성"""
+    """기술적 분석 기반 매수 신호 생성 (점수만 반환)"""
     if data is None or data.empty:
         return None
     
     try:
         score = calculate_score(data)
+        current_price = data['Close'].iloc[-1]
         
-        # 7.5점 이상만 신호 반환
-        if score >= 7.5:
-            current_price = data['Close'].iloc[-1]
-            return {
-                'symbol': symbol,
-                'level': 'BUY',
-                'score': round(score, 2),
-                'price': round(current_price, 2),
-                'date': datetime.now().isoformat()
-            }
-        
-        # 7.5점 미만이지만 점수가 있으면 디버깅용으로 반환하지 않음
-        return None
+        # 점수가 있으면 항상 반환 (7.5점 미만이어도)
+        return {
+            'symbol': symbol,
+            'level': 'BUY' if score >= 7.5 else 'WATCH',
+            'score': round(score, 2),
+            'price': round(current_price, 2),
+            'date': datetime.now().isoformat(),
+            'method': 'technical'
+        }
     except Exception as e:
-        # 에러 발생 시 None 반환 (조용히 실패)
         return None
+
+def get_technical_score_only(symbol, data):
+    """기술적 분석 점수만 반환 (다른 방법론과 비교용)"""
+    try:
+        score = calculate_score(data)
+        return round(score, 2)
+    except:
+        return 0.0
 

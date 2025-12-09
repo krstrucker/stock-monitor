@@ -70,12 +70,29 @@ class StockMonitor:
             if is_test_symbol:
                 print(f"✅ {symbol}: 데이터 가져옴 ({len(data)}개 행)")
             
-            # 점수 계산을 먼저 확인
-            from signal_generator import calculate_score
+            # 모든 방법론의 점수 계산
+            from canslim_score import get_canslim_score_only
+            from value_investing_score import get_value_score_only
+            from signal_generator import get_technical_score_only
+            
+            canslim_score = 0.0
+            value_score = 0.0
+            technical_score = 0.0
+            
             try:
-                score = calculate_score(data)
-            except Exception as e:
-                score = 0
+                canslim_score = get_canslim_score_only(symbol, data)
+            except:
+                pass
+            
+            try:
+                value_score = get_value_score_only(symbol, data)
+            except:
+                pass
+            
+            try:
+                technical_score = get_technical_score_only(symbol, data)
+            except:
+                pass
             
             # 윌리엄 오닐 CAN SLIM 방법론 우선 사용
             signal = generate_canslim_signal(symbol, data)
@@ -88,27 +105,30 @@ class StockMonitor:
             if signal is None:
                 signal = generate_signal(symbol, data)
             
-            # 모든 종목의 점수 출력 (5점 이상만 출력하여 로그 과다 방지)
-            if score >= 5.0:
-                if signal:
-                    final_score = signal.get('score', 0)
-                    price = signal.get('price', 0)
-                    print(f"✅ {symbol}: 신호 생성됨 | 점수: {final_score:.2f}점 | 가격: ${price:.2f}")
-                else:
-                    print(f"ℹ️ {symbol}: 점수 {score:.2f}점 (7.5점 미만)")
-            elif is_test_symbol:
-                # 테스트 종목은 점수와 관계없이 출력
-                if signal:
-                    final_score = signal.get('score', 0)
-                    price = signal.get('price', 0)
-                    print(f"✅ {symbol}: 신호 생성됨 | 점수: {final_score:.2f}점 | 가격: ${price:.2f}")
-                else:
-                    print(f"ℹ️ {symbol}: 점수 {score:.2f}점 (7.5점 미만)")
+            # 모든 점수를 신호에 추가
+            if signal:
+                signal['canslim_score'] = canslim_score
+                signal['value_score'] = value_score
+                signal['technical_score'] = technical_score
+                signal['total_score'] = max(canslim_score, value_score, technical_score)
             
-            if signal and signal.get('score', 0) >= 7.5:  # 7.5점 이상만
+            # CAN SLIM 점수가 5점 이상이면 출력 (오닐 방법론에 맞는 종목)
+            if canslim_score >= 5.0 or is_test_symbol:
+                if signal:
+                    price = signal.get('price', 0)
+                    print(f"📊 {symbol}: CAN SLIM {canslim_score:.2f}점 | 가치 {value_score:.2f}점 | 기술 {technical_score:.2f}점 | 가격 ${price:.2f}")
+                else:
+                    print(f"ℹ️ {symbol}: CAN SLIM {canslim_score:.2f}점 | 가치 {value_score:.2f}점 | 기술 {technical_score:.2f}점")
+            
+            # 7.5점 이상이면 매수 신호로 저장
+            if signal and signal.get('total_score', 0) >= 7.5:
                 signal['last_seen'] = signal['date']
                 self.previous_signals[symbol] = signal
-                print(f"🟢 {symbol}: 7.5점 이상 신호 발견! (점수: {signal.get('score', 0):.2f}점)")
+                print(f"🟢 {symbol}: 7.5점 이상 신호 발견! (CAN SLIM: {canslim_score:.2f}, 가치: {value_score:.2f}, 기술: {technical_score:.2f})")
+                return signal
+            
+            # CAN SLIM 점수가 5점 이상이면 관찰 종목으로 반환 (모든 점수 포함)
+            if canslim_score >= 5.0:
                 return signal
             
             return None

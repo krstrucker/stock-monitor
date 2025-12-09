@@ -296,27 +296,32 @@ def calculate_canslim_score(symbol, price_data):
         return 0.0, {'error': str(e)}
 
 def generate_canslim_signal(symbol, price_data):
-    """CAN SLIM 방법론 기반 매수 신호 생성"""
+    """CAN SLIM 방법론 기반 매수 신호 생성 (점수만 반환)"""
     if price_data is None or price_data.empty:
         return None
     
     try:
         score, reasons = calculate_canslim_score(symbol, price_data)
+        current_price = price_data['Close'].iloc[-1]
         
-        # 7.5점 이상만 신호 반환
-        if score >= 7.5:
-            current_price = price_data['Close'].iloc[-1]
-            return {
-                'symbol': symbol,
-                'level': 'BUY',
-                'score': round(score, 2),
-                'price': round(current_price, 2),
-                'date': datetime.now().isoformat(),
-                'reasons': reasons,
-                'method': 'canslim'
-            }
-        
-        return None
+        # 점수가 있으면 항상 반환 (7.5점 미만이어도)
+        return {
+            'symbol': symbol,
+            'level': 'BUY' if score >= 7.5 else 'WATCH',
+            'score': round(score, 2),
+            'price': round(current_price, 2),
+            'date': datetime.now().isoformat(),
+            'reasons': reasons,
+            'method': 'canslim'
+        }
     except Exception as e:
         return None
+
+def get_canslim_score_only(symbol, price_data):
+    """CAN SLIM 점수만 반환 (다른 방법론과 비교용)"""
+    try:
+        score, _ = calculate_canslim_score(symbol, price_data)
+        return round(score, 2)
+    except:
+        return 0.0
 

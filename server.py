@@ -140,20 +140,31 @@ def status():
 
 @app.route('/signals')
 def get_signals():
-    """현재 신호 목록 조회"""
+    """현재 신호 목록 조회 (CAN SLIM 5점 이상 모두 표시)"""
     if not monitor or not hasattr(monitor, 'previous_signals'):
         return jsonify({'signals': [], 'count': 0})
     
     signals = []
     for symbol, data in monitor.previous_signals.items():
-        if data.get('score', 0) >= 7.5:  # 7.5점 이상만
+        # CAN SLIM 점수가 5점 이상이거나, 총점이 7.5점 이상인 종목 표시
+        canslim_score = data.get('canslim_score', 0)
+        total_score = data.get('total_score', data.get('score', 0))
+        
+        if canslim_score >= 5.0 or total_score >= 7.5:
             signals.append({
                 'symbol': symbol,
-                'level': data.get('level'),
-                'score': data.get('score'),
-                'price': data.get('price'),
-                'last_seen': data.get('last_seen', data.get('date'))
+                'level': data.get('level', 'WATCH'),
+                'score': total_score,
+                'canslim_score': canslim_score,
+                'value_score': data.get('value_score', 0),
+                'technical_score': data.get('technical_score', 0),
+                'price': data.get('price', 0),
+                'last_seen': data.get('last_seen', data.get('date')),
+                'method': data.get('method', 'unknown')
             })
+    
+    # CAN SLIM 점수 순으로 정렬
+    signals.sort(key=lambda x: (x.get('canslim_score', 0), x.get('score', 0)), reverse=True)
     
     return jsonify({
         'signals': signals,

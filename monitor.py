@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from data_fetcher import fetch_stock_data, YFRateLimitError
 from signal_generator import generate_signal
 from value_investing_score import generate_value_signal
+from canslim_score import generate_canslim_signal
 import time
 
 # 경고 억제

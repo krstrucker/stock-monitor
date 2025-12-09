@@ -734,36 +734,71 @@
                     document.getElementById('chart-title').textContent = `${symbol} 차트`;
                 }
                 
+                // 기존 차트 제거
                 if (chart) {
-                    chart.remove();
+                    try {
+                        chart.remove();
+                    } catch (e) {
+                        // 차트가 이미 제거된 경우 무시
+                    }
                 }
                 
-                chart = LightweightCharts.createChart(container, {
-                    width: container.clientWidth,
-                    height: container.clientHeight,
-                    layout: {
-                        backgroundColor: '#0a0a0a',
-                        textColor: '#4CAF50',
-                    },
-                    grid: {
-                        vertLines: { color: '#1a1a1a' },
-                        horzLines: { color: '#1a1a1a' },
-                    },
-                });
+                // 컨테이너 초기화
+                container.innerHTML = '';
                 
-                const candlestickSeries = chart.addCandlestickSeries({
-                    upColor: '#4CAF50',
-                    downColor: '#f44336',
-                    borderVisible: false,
-                });
-                
-                candlestickSeries.setData(chartData.candles);
-                
-                if (chartData.markers && chartData.markers.length > 0) {
-                    candlestickSeries.setMarkers(chartData.markers);
+                // 차트 생성 (Lightweight Charts API 확인)
+                try {
+                    chart = LightweightCharts.createChart(container, {
+                        width: container.clientWidth,
+                        height: container.clientHeight,
+                        layout: {
+                            background: { color: '#0a0a0a' },
+                            textColor: '#4CAF50',
+                        },
+                        grid: {
+                            vertLines: { color: '#1a1a1a' },
+                            horzLines: { color: '#1a1a1a' },
+                        },
+                        timeScale: {
+                            timeVisible: true,
+                            secondsVisible: false,
+                        },
+                    });
+                    
+                    // 캔들스틱 시리즈 추가 (API 버전 확인)
+                    let candlestickSeries;
+                    if (typeof chart.addCandlestickSeries === 'function') {
+                        candlestickSeries = chart.addCandlestickSeries({
+                            upColor: '#4CAF50',
+                            downColor: '#f44336',
+                            borderVisible: false,
+                            wickUpColor: '#4CAF50',
+                            wickDownColor: '#f44336',
+                        });
+                    } else {
+                        throw new Error('차트 라이브러리 API를 찾을 수 없습니다. 라이브러리가 제대로 로드되었는지 확인하세요.');
+                    }
+                    
+                    // 데이터 설정
+                    if (chartData.candles && chartData.candles.length > 0) {
+                        candlestickSeries.setData(chartData.candles);
+                    } else {
+                        throw new Error('차트 데이터가 없습니다.');
+                    }
+                    
+                    // 마커 설정
+                    if (chartData.markers && chartData.markers.length > 0) {
+                        candlestickSeries.setMarkers(chartData.markers);
+                    }
+                    
+                    // 차트 크기 조정
+                    chart.timeScale().fitContent();
+                    
+                } catch (chartError) {
+                    console.error('차트 생성 오류:', chartError);
+                    container.innerHTML = `<div class="error">차트 생성 실패: ${chartError.message}<br>라이브러리 버전을 확인하세요.</div>`;
+                    return;
                 }
-                
-                chart.timeScale().fitContent();
             } catch (error) {
                 document.getElementById('chart-container').innerHTML = 
                     `<div class="error">차트를 불러올 수 없습니다: ${error.message}</div>`;

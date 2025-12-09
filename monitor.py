@@ -126,10 +126,18 @@ class StockMonitor:
                     print(f"ℹ️ {symbol}: CAN SLIM {canslim_score:.2f}점 | 가치 {value_score:.2f}점 | 기술 {technical_score:.2f}점 | 총점 {total_score:.2f}점")
             
             # 7.5점 이상이면 매수 신호로 저장
-            if signal and signal.get('total_score', 0) >= 7.5:
+            if signal and total_score >= 7.5:
                 signal['last_seen'] = signal['date']
+                signal['level'] = 'BUY'
                 self.previous_signals[symbol] = signal
                 print(f"🟢 {symbol}: 7.5점 이상 신호 발견! (CAN SLIM: {canslim_score:.2f}, 가치: {value_score:.2f}, 기술: {technical_score:.2f})")
+                return signal
+            
+            # 6.5점 이상이면 관찰 종목으로 저장 (대시보드 표시용)
+            if signal and total_score >= 6.5:
+                signal['last_seen'] = signal['date']
+                signal['level'] = 'WATCH'
+                self.previous_signals[symbol] = signal
                 return signal
             
             # CAN SLIM 점수가 5점 이상이면 관찰 종목으로 반환 (모든 점수 포함)

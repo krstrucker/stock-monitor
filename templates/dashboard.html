@@ -1076,7 +1076,7 @@
             }
         }
 
-        // TOP 10 로드
+        // TOP 10 로드 (수익률 기준)
         async function loadTopPerformers() {
             try {
                 const response = await fetch(`${API_BASE}/top-performers?period=week`);
@@ -1084,20 +1084,31 @@
                 
                 const container = document.getElementById('top-performers-container');
                 if (data.performers && data.performers.length > 0) {
-                    container.innerHTML = data.performers.map((perf, idx) => `
-                        <div class="signal-item" onclick="selectSymbol('${perf.symbol}')">
-                            <div class="signal-info">
-                                <strong>${idx + 1}. ${perf.symbol}</strong>
-                                <div class="signal-details">
-                                    <span>📊 평균 ${perf.avg_score}점</span>
-                                    <span>🔄 ${perf.signal_count}회 신호</span>
+                    container.innerHTML = data.performers.map((perf, idx) => {
+                        const returnRate = perf.return_rate || 0;
+                        const returnColor = returnRate >= 0 ? '#4CAF50' : '#f44336';
+                        const returnIcon = returnRate >= 0 ? '📈' : '📉';
+                        
+                        return `
+                            <div class="signal-item" onclick="selectSymbol('${perf.symbol}')">
+                                <div class="signal-info">
+                                    <strong>${idx + 1}. ${perf.symbol}</strong>
+                                    <div class="signal-details">
+                                        <span style="color: ${returnColor}; font-weight: bold;">
+                                            ${returnIcon} ${returnRate >= 0 ? '+' : ''}${returnRate.toFixed(2)}%
+                                        </span>
+                                        <span>💰 $${perf.first_price || 0} → $${perf.latest_price || 0}</span>
+                                        <span>📊 ${perf.avg_score.toFixed(1)}점</span>
+                                    </div>
+                                </div>
+                                <div class="score high" style="color: ${returnColor}; border-color: ${returnColor};">
+                                    ${returnRate >= 0 ? '+' : ''}${returnRate.toFixed(1)}%
                                 </div>
                             </div>
-                            <div class="score high">${perf.avg_score.toFixed(1)}</div>
-                        </div>
-                    `).join('');
+                        `;
+                    }).join('');
                 } else {
-                    container.innerHTML = '<div class="empty-state">데이터가 없습니다</div>';
+                    container.innerHTML = '<div class="empty-state">데이터가 없습니다. 스캔을 실행하면 수익률이 계산됩니다.</div>';
                 }
                 showRefreshIndicator();
             } catch (error) {

@@ -89,6 +89,15 @@ def init_scheduler():
     # StockMonitor 초기화
     monitor = StockMonitor(scan_interval_minutes=240, save_history=True)
     
+    # 데이터베이스에서 최근 신호 복원
+    try:
+        restored_signals = db.get_latest_signals(limit=200)
+        if restored_signals:
+            monitor.previous_signals = restored_signals
+            print(f"✅ 데이터베이스에서 {len(restored_signals)}개 종목 신호 복원 완료")
+    except Exception as e:
+        print(f"⚠️ 신호 복원 실패: {str(e)}")
+    
     # 하루 2번 스캔: 22:30 (미국 시장 개장 시)와 02:30 (4시간 후)
     scheduler.add_job(
         scheduled_scan,
@@ -560,7 +569,7 @@ def get_chart_data(symbol):
 
 @app.route('/top-performers')
 def get_top_performers():
-    """주간/월간 TOP 10"""
+    """주간/월간 수익률 TOP 10"""
     period = request.args.get('period', 'week')  # 'week' or 'month'
     
     try:

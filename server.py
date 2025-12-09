@@ -239,8 +239,18 @@ def scheduled_scan_with_realtime():
             symbols = all_symbols[:symbol_count]
             print(f"📊 제한된 종목 스캔: {len(symbols)}개 종목 (전체: {len(all_symbols)}개)")
         
-        # 특수 문자 필터링
-        valid_symbols = [s for s in symbols if '^' not in s and '/' not in s and '$' not in s]
+        # 특수 문자 및 우선주 필터링 (symbol_fetcher에서 이미 필터링되었지만 이중 체크)
+        valid_symbols = []
+        for s in symbols:
+            s_upper = s.upper().strip()
+            # 우선주 제외
+            if ('.PR' in s_upper or s_upper.endswith('-P') or 
+                any(s_upper.endswith(f'-{chr(i)}') for i in range(65, 91))):  # -A ~ -Z
+                continue
+            # 특수 문자 제외
+            if '^' not in s_upper and '/' not in s_upper and '$' not in s_upper:
+                valid_symbols.append(s_upper)
+        
         symbols = valid_symbols
         
         scan_status['total'] = len(symbols)

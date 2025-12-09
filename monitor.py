@@ -34,8 +34,20 @@ class StockMonitor:
     def scan_symbol(self, symbol):
         """단일 종목 스캔"""
         try:
+            symbol_upper = symbol.upper().strip()
+            
             # 특수 문자 필터링
-            if '^' in symbol or '/' in symbol or '$' in symbol:
+            if '^' in symbol_upper or '/' in symbol_upper or '$' in symbol_upper:
+                return None
+            
+            # 우선주 제외
+            if ('.PR' in symbol_upper or 
+                symbol_upper.endswith('-P') or 
+                any(symbol_upper.endswith(f'-{chr(i)}') for i in range(65, 91))):  # -A ~ -Z
+                return None
+            
+            # 상장폐지 의심 종목 제외 (너무 짧거나 특수 패턴)
+            if len(symbol_upper) < 1 or len(symbol_upper) > 5:
                 return None
             
             data = fetch_stock_data(symbol)
